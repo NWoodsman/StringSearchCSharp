@@ -12,9 +12,12 @@ public static class SnippetView
     /// <param name="highlight">Span of the current string.</param>
     /// <param name="baseStyle">Style for a text position outside the highlight (syntax colors); default style if null.</param>
     /// <param name="highlightStyle">Style of the highlighted span; <see cref="Theme.CurrentString"/> if null.</param>
-    public static void Draw(Frame frame, Layout layout, SourceDocument document, int topLine,
-        TextSpan? highlight, Func<int, Style>? baseStyle = null, Style? highlightStyle = null)
+    /// <param name="cursor">Edit cursor offset. The view scrolls sideways to keep it visible.</param>
+    /// <returns>Screen position of <paramref name="cursor"/>, or null if it is not on screen.</returns>
+    public static (int Row, int Col)? Draw(Frame frame, Layout layout, SourceDocument document, int topLine,
+        TextSpan? highlight, Func<int, Style>? baseStyle = null, Style? highlightStyle = null, int? cursor = null)
     {
+        (int Row, int Col)? cursorCell = null;
         var spanStyle = highlightStyle ?? Theme.CurrentString;
         var lines = document.Text.Lines;
         int digits = Math.Max(3, lines.Count.ToString().Length);
@@ -24,14 +27,17 @@ public static class SnippetView
         int hlFirst = -1, hlLast = -1, left = 0;
         if (highlight is { } span)
         {
-            var firstLine = lines.GetLineFromPosition(span.Start);
-            hlFirst = firstLine.LineNumber;
+            hlFirst = lines.GetLineFromPosition(span.Start).LineNumber;
             hlLast = lines.GetLineFromPosition(span.End).LineNumber;
+        }
 
-            // Scroll horizontally when the string starts too far right to be seen.
-            int startCol = DisplayColumn(document.Text.ToString(firstLine.Span), span.Start - firstLine.Start);
-            if (startCol >= codeWidth - 4)
-                left = startCol - codeWidth / 3;
+        // Scroll horizontally when the cursor (or else the string start) is too far right to be seen.
+        if ((cursor ?? highlight?.Start) is { } focus)
+        {
+            var focusLine = lines.GetLineFromPosition(focus);
+            int focusCol = DisplayColumn(document.Text.ToString(focusLine.Span), focus - focusLine.Start);
+            if (focusCol >= codeWidth - 4)
+                left = focusCol - codeWidth / 3;
         }
 
         for (int r = 0; r < layout.SnippetHeight; r++)
@@ -54,6 +60,8 @@ public static class SnippetView
             {
                 Rune.DecodeFromUtf16(text.AsSpan(i), out var rune, out int consumed);
                 int position = line.Start + i;
+                if (position == cursor && col >= left && col - left < codeWidth)
+                    cursorCell = (row, codeLeft + col - left);
                 var style = highlight is { } h && h.Contains(position)
                     ? spanStyle
                     : baseStyle?.Invoke(position) ?? Style.Default;
@@ -73,11 +81,16 @@ public static class SnippetView
                 i += consumed;
             }
 
+            if (cursor == line.End && col >= left)
+                cursorCell = (row, Math.Min(frame.Width - 1, codeLeft + col - left));
+
             if (left > 0 && col > left)
                 frame.Write(row, codeLeft, "‹", Theme.Gutter);
             if (truncated && col - left > codeWidth)
                 frame.Write(row, frame.Width - 1, "›", Theme.Gutter);
         }
+
+        return cursorCell;
     }
 
     /// <summary>Writes one glyph if it is inside the visible columns. Returns false if it was cut off on the right.</summary>

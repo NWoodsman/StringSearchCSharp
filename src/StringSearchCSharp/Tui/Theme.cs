@@ -34,6 +34,8 @@ public static class Theme
     // Committed strings: the whole snippet loses its syntax colors.
     public static readonly Style Committed = new(Fg: Rgb.FromHex(0x6E7681));
     public static readonly Style CommittedString = new(Fg: Rgb.FromHex(0xA0A8B0), Bg: Rgb.FromHex(0x2D333B), Attr: TextAttr.Strikethrough);
+    public static readonly Style EditedString = new(Fg: Rgb.FromHex(0xFFE9A8), Bg: Rgb.FromHex(0x1F3A2A));
+    public static readonly Style ModifiedBadge = new(Fg: Rgb.FromHex(0xF5A524), Attr: TextAttr.Bold);
     public static readonly Style CommittedBadge = new(Fg: Rgb.FromHex(0x3FB950), Attr: TextAttr.Bold);
 
     public static Style ModeBadge(App.Mode mode) => mode switch

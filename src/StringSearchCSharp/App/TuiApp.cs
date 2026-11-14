@@ -8,7 +8,7 @@ public static class TuiApp
     public static void Run(Session session)
     {
         using var terminal = new Terminal();
-        var controller = new Controller(session.Items, o => session.Sources.Get(o.FilePath).LineCount);
+        var controller = new Controller(session.Items, o => session.Sources.Get(o.FilePath));
         var state = AppState.Initial;
         Frame? previous = null;
 
@@ -31,7 +31,19 @@ public static class TuiApp
                 continue;
             }
 
-            state = controller.Handle(state, key.Value, new Layout(width, height).SnippetHeight);
+            int viewHeight = new Layout(width, height).SnippetHeight;
+            state = controller.Handle(state, key.Value, viewHeight);
+
+            if (state.Effect == Effect.Commit)
+            {
+                // Writing the file and updating .searches is milestone 6. Until then the edit stays
+                // in the buffer so nothing is lost.
+                state = state with
+                {
+                    Effect = Effect.None,
+                    Message = "Saving is not implemented yet; your changes are still in the buffer",
+                };
+            }
         }
     }
 }

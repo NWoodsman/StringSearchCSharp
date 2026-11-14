@@ -30,6 +30,7 @@ public static class AnsiWriter
     public static string Diff(Frame? previous, Frame next, ColorMode mode)
     {
         bool full = previous is null || previous.Width != next.Width || previous.Height != next.Height;
+        bool wrote = false;
         var sb = new StringBuilder();
         if (full)
             sb.Append(Esc).Append("0m").Append(Esc).Append("2J");
@@ -39,6 +40,7 @@ public static class AnsiWriter
             if (!full && previous!.Row(row).SequenceEqual(next.Row(row)))
                 continue;
 
+            wrote = true;
             sb.Append(Esc).Append(row + 1).Append(";1H");
             Style? current = null;
             foreach (var cell in next.Row(row))
@@ -53,6 +55,17 @@ public static class AnsiWriter
                 sb.Append(cell.Text);
             }
             sb.Append(Esc).Append("0m");
+        }
+
+        // Writing moves the terminal cursor, so put it back whenever anything was drawn.
+        if (full || wrote || previous!.Cursor != next.Cursor)
+        {
+            if (next.Cursor is { } cursor)
+                sb.Append(Esc).Append(cursor.Row + 1).Append(';').Append(cursor.Col + 1).Append('H')
+                  .Append(Esc).Append("5 q") // blinking bar
+                  .Append(Esc).Append("?25h");
+            else
+                sb.Append(Esc).Append("?25l");
         }
         return sb.ToString();
     }

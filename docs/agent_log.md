@@ -87,3 +87,27 @@ Today's initial task is to read design.md and create a plan to implement the app
 - Checked in tmux (decoding the escape codes): keywords, control keywords, types, methods, numbers, doc comments and interpolated-string parts are colored as expected.
 - Tests: 151 passing (43 new: token classes, disabled code, cache, normal vs committed screen rendering).
 - Not committed yet.
+
+### Log: commit, then milestone 5, edit mode (Claude Opus 5.5)
+
+- Committed milestone 4 as `30532b7`.
+- Ctrl+S risk resolved (tested in tmux): with output running and no key read in progress, Ctrl+S was queued as a key and output did not freeze, because .NET keeps IXON off once it has configured the terminal. A child `stty -ixon` would not help, since .NET resets terminal settings around child processes. Recorded in the plan.
+- `Editing/EditSession.cs`: an immutable edit buffer holding the original document, the current `SourceText`, the cursor, the goal column for Up/Down, the string span (kept in step with edits by `AdjustSpan`) and the raw `TextChange` history.
+  - `Patch` is the minimal change against the original (common prefix and suffix removed). `Size` gives +inserted/−deleted from it, and `IsDirty` compares content, so typing and then deleting the same text is clean again.
+  - Editing: insert, Backspace, Delete (CRLF and surrogate pairs count as one unit), smart Home, End, vertical moves that keep the display column, and Enter using the file's own line ending.
+  - The cursor starts just inside the opening delimiter (`$`, `@`, and one or more quotes).
+- `App/AppState`: new `Edit`, `Prompt` (ConfirmCommit / ConfirmDiscard / ConfirmQuit) and `Effect` (Commit) fields.
+- `App/Controller`: `2` enters edit mode from mode 0 or scroll mode. In edit mode only Esc leaves, and every printable key (digits included) is typed; Ctrl/Alt chords are not.
+  - Ctrl+S asks to commit when there are changes: Enter sets `Effect.Commit`, Esc returns to the buffer. Without changes it just shows a message.
+  - Esc: with no changes it goes back to scroll mode; with changes it asks, then a second Esc discards and returns to scroll mode, while Enter keeps editing.
+  - Ctrl+C with unsaved changes asks; a second Ctrl+C quits.
+  - Arrows, PgUp/PgDn and resizing keep the cursor in view.
+  - The controller now takes a `SourceDocument` provider instead of a line-count function.
+- Rendering:
+  - `Frame.Cursor` puts the real terminal cursor (a blinking bar) in the right cell. `AnsiWriter` emits the cursor only when something changed, and `Terminal` resets the cursor shape on exit.
+  - `SnippetView` returns the cursor's cell and scrolls sideways to follow the cursor.
+  - `Screen` in edit mode shows the edited text with live highlighting, `● modified`, a status bar with `Ln/Col │ Δ +i −d │ encoding │ line endings │ lines`, prompts that replace the status bar, and the edit keys in the help screen.
+- `TuiApp`: on `Effect.Commit` it shows "Saving is not implemented yet" and keeps the buffer. Milestone 6 replaces this with the real commit.
+- Manual check in tmux: entering edit mode, typing digits, Backspace and End, both prompts, discarding, Enter splitting a line, and the Ctrl+C prompt then quit. The sample file's md5 was unchanged, so nothing is written yet.
+- Tests: 199 passing (48 new: EditSession, edit-mode controller flows, cursor output, cursor in the snippet, prompt rendering).
+- Not committed yet.

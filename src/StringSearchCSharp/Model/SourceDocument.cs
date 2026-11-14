@@ -37,6 +37,9 @@ public sealed class SourceDocument
         return FromContent(path, content, DescribeEncoding(bytes));
     }
 
+    /// <summary>The same file with different text (an edit buffer); encoding facts are kept.</summary>
+    public SourceDocument WithText(SourceText text) => new(Path, text, EncodingName, LineEnding);
+
     public static SourceDocument FromContent(string path, string content, string encodingName = "UTF-8") =>
         new(path, SourceText.From(content), encodingName, DescribeLineEndings(content));
 

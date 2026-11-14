@@ -56,6 +56,37 @@ public class SnippetViewTests
         Assert.Equal("›", frame[4, 39].Text);
     }
 
+    [Fact]
+    public void Returns_the_cursor_cell_including_at_line_end()
+    {
+        const string code = "a\n\tb = \"x\";";
+        var document = SourceDocument.FromContent("A.cs", code);
+        var frame = new Frame(Layout.Width, Layout.Height);
+
+        var onQuote = SnippetView.Draw(frame, Layout, document, 0, null, cursor: code.IndexOf('"'));
+        var atEnd = SnippetView.Draw(frame, Layout, document, 0, null, cursor: code.Length);
+        var offScreen = SnippetView.Draw(frame, new Layout(40, 7), document, topLine: 0, null, cursor: code.Length);
+
+        Assert.Equal((5, 14), onQuote);
+        Assert.Equal((5, 6 + 4 + 8), atEnd); // gutter + tab + `b = "x";`
+        Assert.Null(SnippetView.Draw(new Frame(40, 10), Layout, document, topLine: 1, null, cursor: 0));
+        Assert.Null(offScreen); // a 1-line pane shows only line 1
+    }
+
+    [Fact]
+    public void Scrolls_horizontally_to_follow_the_cursor()
+    {
+        var code = "var s = \"" + new string('a', 80) + "\";";
+        var document = SourceDocument.FromContent("A.cs", code);
+        var frame = new Frame(Layout.Width, Layout.Height);
+
+        var cell = SnippetView.Draw(frame, Layout, document, 0, new TextSpan(8, 82), cursor: 85);
+
+        Assert.NotNull(cell);
+        Assert.InRange(cell!.Value.Col, 6, Layout.Width - 1);
+        Assert.Equal("‹", frame[4, 6].Text);
+    }
+
     [Theory]
     [InlineData("abc", 2, 2)]
     [InlineData("\tx", 1, 4)]

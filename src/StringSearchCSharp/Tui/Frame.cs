@@ -27,6 +27,9 @@ public sealed class Frame
     public int Width { get; }
     public int Height { get; }
 
+    /// <summary>Where the terminal's text cursor is shown; null hides it.</summary>
+    public (int Row, int Col)? Cursor { get; set; }
+
     public Cell this[int row, int col] => _cells[row * Width + col];
 
     public ReadOnlySpan<Cell> Row(int row) => _cells.AsSpan(row * Width, Width);

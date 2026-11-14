@@ -63,7 +63,7 @@ public sealed class Terminal : IDisposable
         if (_disposed)
             return;
         _disposed = true;
-        Write($"{Esc}0m{Esc}?7h{Esc}?25h{Esc}?1049l");
+        Write($"{Esc}0m{Esc}0 q{Esc}?7h{Esc}?25h{Esc}?1049l");
         Console.TreatControlCAsInput = _savedTreatControlC;
         Console.OutputEncoding = _savedOutputEncoding;
     }

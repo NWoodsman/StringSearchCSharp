@@ -241,7 +241,7 @@ Each milestone builds, passes tests and is committed on its own.
 
 ## Risks to check early
 
-- **Ctrl+S on Linux terminals** can be taken by XON/XOFF flow control (freezing output) before the app sees it. *Checked in milestone 3 (under tmux):* `stty` still reports `ixon`, but Ctrl+S reached `Console.ReadKey` as `Control+S`, so .NET turns flow control off while it reads. There is a small remaining window: a Ctrl+S pressed while the app is redrawing, outside a read, could still freeze output. Milestone 5 runs `stty -ixon` on start and restores it on exit.
+- **Ctrl+S on Linux terminals** can be taken by XON/XOFF flow control (freezing output) before the app sees it. *Checked in milestone 3 (under tmux):* `stty` still reports `ixon`, but Ctrl+S reached `Console.ReadKey` as `Control+S`, so .NET turns flow control off while it reads. *Resolved in milestone 5:* a Ctrl+S pressed while the app was printing and not reading was queued as input (`S, Control`) and output did not freeze. After the first key read, .NET keeps the terminal in its own raw mode, with IXON off, for the whole session. No `stty` is needed, and it wouldn't help anyway: .NET resets terminal settings around child processes, so a child `stty` cannot change them.
 - **Esc latency/ambiguity**: .NET has to tell a lone Esc apart from the start of an escape sequence. Check that Esc feels responsive and that Alt+key arrives as a modifier.
 - **Wide characters / emoji** in strings break simple column math. Use a cell-width function (East Asian Width + emoji) in `Frame`. Tabs expand to 4 columns.
 - **Large files**: render only the visible lines, and classify only the visible token range.

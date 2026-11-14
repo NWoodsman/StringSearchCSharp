@@ -89,6 +89,26 @@ public class AnsiWriterTests
     }
 
     [Fact]
+    public void Cursor_is_shown_at_its_cell_or_hidden()
+    {
+        var shown = new Frame(10, 3) { Cursor = (1, 4) };
+        var hidden = new Frame(10, 3);
+
+        Assert.EndsWith("\u001b[2;5H\u001b[5 q\u001b[?25h", AnsiWriter.Diff(null, shown, ColorMode.TrueColor));
+        Assert.EndsWith("\u001b[?25l", AnsiWriter.Diff(null, hidden, ColorMode.TrueColor));
+    }
+
+    [Fact]
+    public void Cursor_move_alone_is_emitted_and_identical_frames_emit_nothing()
+    {
+        var a = new Frame(10, 3) { Cursor = (1, 4) };
+        var b = new Frame(10, 3) { Cursor = (1, 5) };
+
+        Assert.Equal("\u001b[2;6H\u001b[5 q\u001b[?25h", AnsiWriter.Diff(a, b, ColorMode.TrueColor));
+        Assert.Equal("", AnsiWriter.Diff(a, new Frame(10, 3) { Cursor = (1, 4) }, ColorMode.TrueColor));
+    }
+
+    [Fact]
     public void Continuation_cells_are_not_written()
     {
         var frame = new Frame(3, 1);

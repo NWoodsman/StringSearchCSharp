@@ -42,6 +42,17 @@ public static class Screen
     private static void DrawSnippet(Frame frame, Layout layout, Session session, AppState state)
     {
         var occurrence = session.Items[state.Index];
+
+        if (state.Edit is { } edit)
+        {
+            var edited = edit.Document;
+            var editClasses = Highlighter.For(edited);
+            frame.Cursor = SnippetView.Draw(frame, layout, edited, state.TopLine, edit.StringSpan,
+                position => position < editClasses.Length ? Highlighter.StyleOf(editClasses[position]) : Style.Default,
+                Theme.EditedString, edit.Cursor);
+            return;
+        }
+
         var document = session.Sources.Get(occurrence.FilePath);
 
         if (session.IsCommitted(state.Index))
@@ -74,7 +85,9 @@ public static class Screen
         var location = TruncateStart($"{occurrence.RelativePath}:{occurrence.Line}:{occurrence.Column}", badgeCol - 1);
         int col = frame.Write(layout.LocationRow, 0, location, Theme.Path, badgeCol - 1);
         col = frame.Write(layout.LocationRow, col, $"   string {position}/{count} in file", Theme.Muted, badgeCol - 1);
-        if (session.IsCommitted(state.Index))
+        if (state.Edit is { IsDirty: true })
+            frame.Write(layout.LocationRow, col, "   ● modified", Theme.ModifiedBadge, badgeCol - 1);
+        else if (session.IsCommitted(state.Index))
             frame.Write(layout.LocationRow, col, "   ✓ committed", Theme.CommittedBadge, badgeCol - 1);
     }
 
@@ -118,6 +131,7 @@ public static class Screen
                 "",
                 "1          scroll mode: browse the found strings",
                 "2          edit mode: edit the current string",
+                "Ctrl+C     quit from anywhere",
                 "q          quit",
                 "",
                 "In scroll mode:",
@@ -126,6 +140,12 @@ public static class Screen
                 "PgUp PgDn  scroll six lines",
                 "Home       re-center on the current string",
                 "Esc        back to this screen",
+                "",
+                "In edit mode:",
+                "type       insert text (digits too); Enter, Tab, Backspace, Delete",
+                "arrows     move the cursor; Home/End line start/end; PgUp PgDn six lines",
+                "Ctrl+S     commit (asks first)",
+                "Esc        leave (asks first if there are changes)",
             ];
 
         for (int i = 0; i < lines.Length && i < layout.SnippetHeight; i++)
@@ -137,8 +157,22 @@ public static class Screen
         int row = layout.StatusRow;
         frame.Fill(row, 0, layout.Width, Theme.StatusBar);
 
+        if (PromptText(state.Prompt) is { } prompt)
+        {
+            frame.Fill(row, 0, layout.Width, Theme.StatusMessage);
+            frame.Write(row, 1, prompt, Theme.StatusMessage);
+            return;
+        }
+
         string left;
-        if (state.Mode == Mode.Scroll && session.Items.Count > 0)
+        if (state.Edit is { } edit)
+        {
+            var line = edit.Text.Lines.GetLineFromPosition(edit.Cursor);
+            var (inserted, deleted) = edit.Size;
+            left = $" Ln {line.LineNumber + 1}, Col {edit.Cursor - line.Start + 1} │ Δ +{inserted} −{deleted} │ " +
+                   $"{edit.Original.EncodingName} │ {edit.Original.LineEnding} │ {edit.Document.LineCount} lines";
+        }
+        else if (state.Mode == Mode.Scroll && session.Items.Count > 0)
         {
             var occurrence = session.Items[state.Index];
             var document = session.Sources.Get(occurrence.FilePath);
@@ -159,7 +193,16 @@ public static class Screen
 
     private static string Hints(Mode mode) => mode switch
     {
-        Mode.Scroll => "←→ string  ↑↓ line  PgUp/PgDn page  Home center  Esc back",
+        Mode.Scroll => "←→ string  ↑↓ PgUp PgDn scroll  Home center  2 edit  Esc back",
+        Mode.Edit => "type to edit  Ctrl+S commit  Esc leave",
         _ => "1 scroll  2 edit  q quit",
+    };
+
+    public static string? PromptText(Prompt prompt) => prompt switch
+    {
+        Prompt.ConfirmCommit => "Commit changes?  Enter commits · Esc returns to editing",
+        Prompt.ConfirmDiscard => "Unsaved changes.  Esc discards them · Enter stays here editing",
+        Prompt.ConfirmQuit => "Unsaved changes.  Ctrl+C again quits without saving · Esc returns",
+        _ => null,
     };
 }

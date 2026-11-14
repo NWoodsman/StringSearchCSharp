@@ -14,7 +14,12 @@ public class ControllerTests
     // A.cs has 100 lines, B.cs has 5.
     private static readonly StringOccurrence[] Items = [At("A.cs", 50), At("A.cs", 3), At("B.cs", 2)];
 
-    private static readonly Controller Sut = new(Items, o => o.FilePath == "A.cs" ? 100 : 5);
+    private static SourceDocument Lines(string path, int count) =>
+        SourceDocument.FromContent(path, string.Join("\n", Enumerable.Range(1, count).Select(i => $"line {i}")));
+
+    private static readonly SourceDocument A = Lines("A.cs", 100), B = Lines("B.cs", 5);
+
+    private static readonly Controller Sut = new(Items, o => o.FilePath == "A.cs" ? A : B);
 
     private static ConsoleKeyInfo Key(ConsoleKey key, char c = '\0', bool control = false) =>
         new(c, key, shift: false, alt: false, control);
@@ -96,14 +101,12 @@ public class ControllerTests
     }
 
     [Fact]
-    public void Two_reports_edit_mode_unavailable_and_the_message_clears_on_the_next_key()
+    public void Message_clears_on_the_next_key()
     {
-        var state = Press(AppState.Initial, Char('2'));
-        Assert.Equal(Mode.Waiting, state.Mode);
-        Assert.Equal(Controller.EditNotAvailable, state.Message);
+        var state = Press(InScroll(), Key(ConsoleKey.LeftArrow));
+        Assert.NotNull(state.Message);
 
         Assert.Null(Press(state, Char('x')).Message);
-        Assert.Equal(Controller.EditNotAvailable, Press(InScroll(), Char('2')).Message);
     }
 
     [Fact]
@@ -130,7 +133,7 @@ public class ControllerTests
     [Fact]
     public void Empty_list_does_not_crash()
     {
-        var sut = new Controller([], _ => 0);
+        var sut = new Controller([], _ => throw new InvalidOperationException());
         var state = sut.Handle(AppState.Initial, Char('1'), View);
         foreach (var key in new[] { ConsoleKey.RightArrow, ConsoleKey.LeftArrow, ConsoleKey.PageDown, ConsoleKey.Home })
             state = sut.Handle(state, Key(key), View);
