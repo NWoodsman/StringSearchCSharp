@@ -54,6 +54,12 @@ public static class Screen
         }
 
         var document = session.Sources.Get(occurrence.FilePath);
+        if (document.LoadError is { } error)
+        {
+            frame.Write(layout.SnippetTop, 2, "Could not read this file:", Theme.Path);
+            frame.Write(layout.SnippetTop + 1, 2, error, Theme.Muted);
+            return;
+        }
 
         if (session.IsCommitted(state.Index))
         {
@@ -87,6 +93,8 @@ public static class Screen
         col = frame.Write(layout.LocationRow, col, $"   string {position}/{count} in file", Theme.Muted, badgeCol - 1);
         if (state.Edit is { IsDirty: true })
             frame.Write(layout.LocationRow, col, "   ● modified", Theme.ModifiedBadge, badgeCol - 1);
+        else if (state.Edit is null && !session.Sources.Get(occurrence.FilePath).Matches(occurrence))
+            frame.Write(layout.LocationRow, col, "   ⚠ changed since scan", Theme.ModifiedBadge, badgeCol - 1);
         else if (session.IsCommitted(state.Index))
             frame.Write(layout.LocationRow, col, "   ✓ committed", Theme.CommittedBadge, badgeCol - 1);
     }
@@ -110,9 +118,11 @@ public static class Screen
     {
         var skipped = session.Scan.SkippedFiles;
         int tests = skipped.Count(f => f.Reason == SkipReason.Test);
+        int unreadable = skipped.Count(f => f.Reason == SkipReason.Unreadable);
         frame.Write(layout.InfoRow, 0,
             $"{session.CommittedCount} committed this session · {session.IgnoredCount} ignored via {SearchStore.FileName} · " +
-            $"{session.Scan.ScannedFiles.Count} files scanned · skipped {tests} test, {skipped.Count - tests} build files",
+            $"{session.Scan.ScannedFiles.Count} files scanned · skipped {tests} test, {skipped.Count - tests - unreadable} build" +
+            (unreadable > 0 ? $", {unreadable} unreadable" : "") + " files",
             Theme.Muted);
     }
 

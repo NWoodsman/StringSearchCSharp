@@ -109,7 +109,12 @@ public sealed class Controller(IReadOnlyList<StringOccurrence> items, Func<Strin
         if (items.Count == 0)
             return state with { Message = "No string to edit" };
         var occurrence = items[state.Index];
-        var edit = EditSession.Start(documents(occurrence), occurrence);
+        var document = documents(occurrence);
+        if (document.LoadError is { } error)
+            return state with { Message = $"Cannot edit: {error}" };
+        if (!document.Matches(occurrence))
+            return state with { Message = "The file changed since the scan; restart to rescan it" };
+        var edit = EditSession.Start(document, occurrence);
         var entered = state.Mode == Mode.Waiting ? Focus(state, state.Index, viewHeight) : state;
         return FollowCursor(entered with { Mode = Mode.Edit, Edit = edit }, viewHeight);
     }

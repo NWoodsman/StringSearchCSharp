@@ -7,11 +7,12 @@ namespace StringSearch.App;
 /// <summary>The interactive loop: render, read a key, update state.</summary>
 public static class TuiApp
 {
-    public static void Run(Session session, SearchStore store)
+    /// <param name="initialMessage">Shown in the status bar on the first screen (e.g. a .searches warning).</param>
+    public static void Run(Session session, SearchStore store, string? initialMessage = null)
     {
         using var terminal = new Terminal();
         var controller = new Controller(session.Items, o => session.Sources.Get(o.FilePath));
-        var state = AppState.Initial;
+        var state = AppState.Initial with { Message = initialMessage };
         Frame? previous = null;
 
         while (true)

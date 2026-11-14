@@ -7,8 +7,8 @@ using StringSearch.Model;
 
 namespace StringSearch.Scanning;
 
-/// <summary>A file left out of the scan, and why.</summary>
-public sealed record SkippedFile(string RelativePath, SkipReason Reason);
+/// <summary>A file left out of the scan, and why. <paramref name="Detail"/> explains unreadable files.</summary>
+public sealed record SkippedFile(string RelativePath, SkipReason Reason, string? Detail = null);
 
 /// <summary>Result of scanning a directory tree.</summary>
 /// <param name="Occurrences">Found strings, ordered by relative path, then position.</param>
@@ -48,13 +48,41 @@ public static class StringScanner
                 scanned.Add(file);
         }
 
-        var occurrences = scanned
+        var results = scanned
             .AsParallel()
             .AsOrdered()
-            .SelectMany(f => ScanSource(File.ReadAllText(f.Full), f.Full, f.Relative))
+            .Select(f => (File: f, Result: TryScan(f.Full, f.Relative)))
             .ToList();
 
-        return new ScanResult(occurrences, scanned.Select(f => f.Relative).ToList(), skipped);
+        var occurrences = new List<StringOccurrence>();
+        var scannedFiles = new List<string>();
+        foreach (var (file, (found, error)) in results)
+        {
+            if (error is null)
+            {
+                scannedFiles.Add(file.Relative);
+                occurrences.AddRange(found!);
+            }
+            else
+            {
+                skipped.Add(new SkippedFile(file.Relative, SkipReason.Unreadable, error));
+            }
+        }
+        skipped.Sort((a, b) => string.CompareOrdinal(a.RelativePath, b.RelativePath));
+
+        return new ScanResult(occurrences, scannedFiles, skipped);
+    }
+
+    private static (IReadOnlyList<StringOccurrence>? Found, string? Error) TryScan(string fullPath, string relativePath)
+    {
+        try
+        {
+            return (ScanSource(File.ReadAllText(fullPath), fullPath, relativePath), null);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return (null, ex.Message);
+        }
     }
 
     /// <summary>

@@ -8,6 +8,8 @@ public enum SkipReason
     BuildOutput,
     /// <summary>A directory or file name that looks like test code.</summary>
     Test,
+    /// <summary>The file could not be read (permissions, deleted during the scan, ...).</summary>
+    Unreadable,
 }
 
 /// <summary>Decides which source files are left out of a scan.</summary>

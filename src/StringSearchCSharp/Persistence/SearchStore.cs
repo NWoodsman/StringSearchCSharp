@@ -34,8 +34,11 @@ public sealed class SearchStore
 
     public string FilePath { get; }
 
-    /// <summary>Set when the file existed but could not be read; it was moved to <c>.searches.bak</c>.</summary>
+    /// <summary>Set when the file existed but could not be read; it was moved to <c>.searches.bak</c>. Short enough for the status bar.</summary>
     public string? LoadWarning { get; }
+
+    /// <summary>The underlying reason for <see cref="LoadWarning"/> (parser message etc.).</summary>
+    public string? LoadWarningDetail { get; private init; }
 
     public IReadOnlyDictionary<SearchKey, List<Snippet>> Entries => _entries;
 
@@ -76,7 +79,10 @@ public sealed class SearchStore
             var backup = path + ".bak";
             File.Move(path, backup, overwrite: true);
             return new SearchStore(path, [],
-                $"Could not read {FileName} ({ex.Message}). It was moved to {Path.GetFileName(backup)}; starting with no committed strings.");
+                $"Could not read {FileName}; moved it to {Path.GetFileName(backup)} and started fresh")
+            {
+                LoadWarningDetail = ex.Message,
+            };
         }
     }
 

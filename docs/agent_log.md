@@ -128,3 +128,22 @@ Today's initial task is to read design.md and create a plan to implement the app
 - Manual check in tmux on a copy of the sample: edit, Ctrl+S, Enter. The file was written, the snippet grayed with strike-through, `✓ committed` shown, and `.searches` written. After a relaunch, the string was hidden (1 ignored, 9/9 strings).
 - Tests: 220 passing (21 new: file content and message, next-run hiding, UTF-8 BOM + CRLF, UTF-16 + Unix permissions, file changed on disk, re-editing a committed string, hidden strings staying hidden, a new string typed in, a deleted string, a neighbor's snippet moving, other files unaffected, `MapStart`, encoder preambles, the syntax-error prompt).
 - Not committed yet.
+
+### Log: commit, then milestone 7, polish (Claude Opus 5.5)
+
+- Committed milestone 6 as `762187f`.
+- Robustness:
+  - A file that can't be read during the scan is skipped with reason `Unreadable` and the error message, instead of failing the whole scan.
+  - `SourceCache` turns a file that vanished or can't be read into a placeholder document; the pane says "Could not read this file", and editing is refused.
+  - If a file changed since the scan (the literal is no longer at its scanned position), the header shows `⚠ changed since scan` and editing is refused with "restart to rescan it", because positions would be wrong.
+- `Program.cs`:
+  - Added `-h/--help` (usage, scanning and skip rules, options, keys) and clearer argument errors (no directory, more than one, unknown option, missing directory with its full path).
+  - Shows a short "Scanning …" notice while scanning, cleared before the UI opens.
+  - The `.searches` warning now appears in the UI's status bar on the first screen. It used to go to stderr, where the alternate screen hid it. It is now short; the parser detail is kept in `LoadWarningDetail` and printed only in list mode.
+  - On exit it prints "N strings committed; recorded in …/.searches" (or "No strings committed.").
+  - An unexpected exception restores the terminal (`using`), then prints a friendly message plus details and exits with code 2.
+- README: build and run, screen layout, key table per mode, scan and skip rules, the commit steps, the `.searches` format and matching rules, tests, project layout.
+- Checked in tmux: help and argument errors, a corrupt `.searches` warning shown in the status bar, commit then quit printing the summary with the `.bak` created, and a clean exit screen in a narrow terminal (the first version of the scanning notice wrapped and left a stray line).
+- Note: tmux `send-keys Escape q` in one call arrives as Alt+Q (an escape sequence), so tests must send Esc separately. Not an issue for a person typing.
+- Tests: 224 passing (4 new: unreadable file during the scan, missing-file placeholder, edit refused for a vanished or changed file and the screen messages, an unchanged file matching its occurrences).
+- Committed (milestone 7 polish commit).

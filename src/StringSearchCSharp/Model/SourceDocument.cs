@@ -7,8 +7,10 @@ namespace StringSearch.Model;
 /// <summary>A source file's text plus the encoding facts shown in the status bar.</summary>
 public sealed class SourceDocument
 {
-    private SourceDocument(string path, SourceText text, string encodingName, string lineEnding, byte[]? contentHash)
+    private SourceDocument(string path, SourceText text, string encodingName, string lineEnding, byte[]? contentHash,
+        string? loadError = null)
     {
+        LoadError = loadError;
         Path = path;
         Text = text;
         EncodingName = encodingName;
@@ -26,6 +28,20 @@ public sealed class SourceDocument
     public string LineEnding { get; }
 
     public int LineCount => Text.Lines.Count;
+
+    /// <summary>Why the file could not be read; the document is then empty and cannot be edited.</summary>
+    public string? LoadError { get; }
+
+    /// <summary>
+    /// True when <paramref name="occurrence"/>'s span still holds its literal, i.e. the file has
+    /// not changed since the scan. If it has, positions are stale and editing is refused.
+    /// </summary>
+    public bool Matches(StringOccurrence occurrence) =>
+        LoadError is null && occurrence.Span.End <= Text.Length && Text.ToString(occurrence.Span) == occurrence.RawText;
+
+    /// <summary>Placeholder for a file that could not be read.</summary>
+    public static SourceDocument Unreadable(string path, string error) =>
+        new(path, SourceText.From(""), "?", "None", null, error);
 
     /// <summary>SHA-256 of the file's bytes when it was loaded; null for documents not read from disk.</summary>
     public byte[]? ContentHash { get; }
@@ -91,7 +107,20 @@ public sealed class SourceDocument
 public sealed class SourceCache(Func<string, SourceDocument>? loader = null)
 {
     private readonly Dictionary<string, SourceDocument> _documents = new(StringComparer.Ordinal);
-    private readonly Func<string, SourceDocument> _loader = loader ?? SourceDocument.Load;
+    private readonly Func<string, SourceDocument> _loader = loader ?? LoadOrPlaceholder;
+
+    /// <summary>Loads a file; a file that vanished or can't be read becomes a placeholder instead of an exception.</summary>
+    public static SourceDocument LoadOrPlaceholder(string path)
+    {
+        try
+        {
+            return SourceDocument.Load(path);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return SourceDocument.Unreadable(path, ex.Message);
+        }
+    }
 
     /// <summary>Replaces a file's cached document (after it was written).</summary>
     public void Set(SourceDocument document) => _documents[document.Path] = document;

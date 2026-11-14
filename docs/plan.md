@@ -234,6 +234,9 @@ xUnit project `src/tests/StringSearch.Tests` that references the app project. No
 
 ## Milestones
 
+Status (2026-11-14): all seven milestones are done. Commits: 1–2 `99e05ca`, 3 `6964795`, 4 `30532b7`, 5 `575ba05`, 6 `762187f`, 7 in the polish commit (see log).
+
+
 Each milestone builds, passes tests and is committed on its own.
 
 1. **Skeleton**: folder layout, xUnit project, `.sln`/`.slnx`, gitignore check. Move the existing scanning into `StringScanner`.
