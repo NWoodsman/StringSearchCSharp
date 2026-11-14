@@ -1,10 +1,29 @@
 # StringSearchCSharp
-Interactive TUI for editing strings in a dotnet project.
+Interactive TUI for editing strings in a dotnet project and dealing with unfortunate 'claudisms'.
 
-StringSearch finds every string literal in the C# files of a directory and lets you step
+The app uses Roslyn, the dotnet parser, to find all hardcoded strings in a project and give you a chance to reword the string. 
+
+Call the TUI app from the terminal, aimed at a folder, and all the strings will be loaded for comparison.
+
+The workflow is basically:
+- the summary is the default view, press 1 to enter scroll mode and start work
+- iterate through strings in scroll mode,
+  - press I to ignore a string
+  - left/right to move to the next string
+  - page up/down to scroll the snippet
+  - enter key to enter edit mode on the string
+- edit/fix the string in edit mode
+  - type a new string in place
+  - enter to commit
+  - escape to revert back to scroll mode
+
+
+Claude will tell you more below.
+
+*StringSearch finds every string literal in the C# files of a directory and lets you step
 through them in a full-screen terminal UI, edit them in place, and commit the edits back to
 the source files. Committed strings are remembered in a `.searches` file, so the next run only
-shows what is left to review.
+shows what is left to review.*
 
 ## Build and run
 
