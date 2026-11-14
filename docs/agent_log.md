@@ -111,3 +111,20 @@ Today's initial task is to read design.md and create a plan to implement the app
 - Manual check in tmux: entering edit mode, typing digits, Backspace and End, both prompts, discarding, Enter splitting a line, and the Ctrl+C prompt then quit. The sample file's md5 was unchanged, so nothing is written yet.
 - Tests: 199 passing (48 new: EditSession, edit-mode controller flows, cursor output, cursor in the snippet, prompt rendering).
 - Not committed yet.
+
+### Log: commit, then milestone 6, commit pipeline (Claude Opus 5.5)
+
+- Committed milestone 5 as `575ba05`.
+- `Model/SourceDocument`: keeps a SHA-256 of the bytes it was loaded from, with `IsUnchangedOnDisk()`. `SourceCache.Set` replaces a document after a write.
+- `Editing/FileWriter`: writes with the original encoding and BOM (UTF-8, UTF-8 BOM, UTF-16 LE/BE), through a temp file and rename, copying the Unix file mode so permissions survive. Line endings are already right in the text.
+- `Editing/EditSession.AddsSyntaxErrors`: compares parse error counts with the original (cached per text). When it is true, the commit prompt shows "⚠ the edit adds syntax errors" but still allows the commit.
+- `Editing/Committer`:
+  - Refuses if the file changed on disk, or if the write fails; the edit stays open with a message.
+  - Otherwise it writes, reloads and re-scans the file, rebuilds that file's list entries (see the plan, "As built in milestone 6") and updates `.searches`: the old snippet is removed if the string was committed earlier this session, the new snippet is added, and moved neighbors' snippets are refreshed.
+  - Returns the edited string's new index and a message such as `Committed "World" → "Hi World"`.
+- `App/Session`: a mutable item list with `FileRange` / `ReplaceFile`. Committed marks are now by reference, so they survive re-indexing.
+- `TuiApp` runs the commit on `Effect.Commit`. On success it returns to scroll mode on the edited string (now grayed); on failure it stays in edit mode with the message. `Program` passes the store in.
+- `Model/Display.Quote` moved out of `Program.cs`, so the commit message and `--list` share it.
+- Manual check in tmux on a copy of the sample: edit, Ctrl+S, Enter. The file was written, the snippet grayed with strike-through, `✓ committed` shown, and `.searches` written. After a relaunch, the string was hidden (1 ignored, 9/9 strings).
+- Tests: 220 passing (21 new: file content and message, next-run hiding, UTF-8 BOM + CRLF, UTF-16 + Unix permissions, file changed on disk, re-editing a committed string, hidden strings staying hidden, a new string typed in, a deleted string, a neighbor's snippet moving, other files unaffected, `MapStart`, encoder preambles, the syntax-error prompt).
+- Not committed yet.

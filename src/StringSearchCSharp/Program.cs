@@ -1,4 +1,3 @@
-using System.Text;
 using StringSearch.App;
 using StringSearch.Model;
 using StringSearch.Persistence;
@@ -36,14 +35,14 @@ if (!flags.Contains("--list"))
 {
     if (!Console.IsInputRedirected && !Console.IsOutputRedirected)
     {
-        TuiApp.Run(new Session(filtered.Visible, scan, filtered.Ignored.Count, new SourceCache()));
+        TuiApp.Run(new Session(filtered.Visible, scan, filtered.Ignored.Count, new SourceCache()), store);
         return 0;
     }
     Console.Error.WriteLine("Not running in a terminal; printing the list instead.");
 }
 
 foreach (var occurrence in filtered.Visible)
-    Console.WriteLine($"{occurrence.RelativePath}:{occurrence.Line}:{occurrence.Column}  {Quote(occurrence.Value)}");
+    Console.WriteLine($"{occurrence.RelativePath}:{occurrence.Line}:{occurrence.Column}  {Display.Quote(occurrence.Value)}");
 
 int testSkips = scan.SkippedFiles.Count(f => f.Reason == SkipReason.Test);
 Console.WriteLine();
@@ -59,22 +58,3 @@ if (flags.Contains("--list"))
 }
 
 return 0;
-
-static string Quote(string value)
-{
-    var sb = new StringBuilder("\"");
-    foreach (var c in value)
-    {
-        sb.Append(c switch
-        {
-            '"' => "\\\"",
-            '\\' => "\\\\",
-            '\n' => "\\n",
-            '\r' => "\\r",
-            '\t' => "\\t",
-            _ when char.IsControl(c) => $"\\u{(int)c:X4}",
-            _ => c.ToString(),
-        });
-    }
-    return sb.Append('"').ToString();
-}

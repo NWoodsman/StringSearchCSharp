@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text;
 using Microsoft.CodeAnalysis.Text;
 
@@ -6,12 +7,13 @@ namespace StringSearch.Model;
 /// <summary>A source file's text plus the encoding facts shown in the status bar.</summary>
 public sealed class SourceDocument
 {
-    private SourceDocument(string path, SourceText text, string encodingName, string lineEnding)
+    private SourceDocument(string path, SourceText text, string encodingName, string lineEnding, byte[]? contentHash)
     {
         Path = path;
         Text = text;
         EncodingName = encodingName;
         LineEnding = lineEnding;
+        ContentHash = contentHash;
     }
 
     public string Path { get; }
@@ -25,6 +27,13 @@ public sealed class SourceDocument
 
     public int LineCount => Text.Lines.Count;
 
+    /// <summary>SHA-256 of the file's bytes when it was loaded; null for documents not read from disk.</summary>
+    public byte[]? ContentHash { get; }
+
+    /// <summary>True when the file on disk still has the bytes this document was loaded from.</summary>
+    public bool IsUnchangedOnDisk() =>
+        ContentHash is null || (File.Exists(Path) && SHA256.HashData(File.ReadAllBytes(Path)).AsSpan().SequenceEqual(ContentHash));
+
     /// <summary>
     /// Decodes like <see cref="File.ReadAllText(string)"/> (BOM detection, BOM stripped), so spans
     /// found by <c>StringScanner</c> line up with this text.
@@ -34,14 +43,15 @@ public sealed class SourceDocument
         var bytes = File.ReadAllBytes(path);
         using var reader = new StreamReader(new MemoryStream(bytes), Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
         var content = reader.ReadToEnd();
-        return FromContent(path, content, DescribeEncoding(bytes));
+        return new SourceDocument(path, SourceText.From(content), DescribeEncoding(bytes), DescribeLineEndings(content),
+            SHA256.HashData(bytes));
     }
 
     /// <summary>The same file with different text (an edit buffer); encoding facts are kept.</summary>
-    public SourceDocument WithText(SourceText text) => new(Path, text, EncodingName, LineEnding);
+    public SourceDocument WithText(SourceText text) => new(Path, text, EncodingName, LineEnding, ContentHash);
 
     public static SourceDocument FromContent(string path, string content, string encodingName = "UTF-8") =>
-        new(path, SourceText.From(content), encodingName, DescribeLineEndings(content));
+        new(path, SourceText.From(content), encodingName, DescribeLineEndings(content), null);
 
     public static string DescribeEncoding(ReadOnlySpan<byte> bytes) => bytes switch
     {
@@ -82,6 +92,9 @@ public sealed class SourceCache(Func<string, SourceDocument>? loader = null)
 {
     private readonly Dictionary<string, SourceDocument> _documents = new(StringComparer.Ordinal);
     private readonly Func<string, SourceDocument> _loader = loader ?? SourceDocument.Load;
+
+    /// <summary>Replaces a file's cached document (after it was written).</summary>
+    public void Set(SourceDocument document) => _documents[document.Path] = document;
 
     public SourceDocument Get(string path)
     {

@@ -157,7 +157,7 @@ public static class Screen
         int row = layout.StatusRow;
         frame.Fill(row, 0, layout.Width, Theme.StatusBar);
 
-        if (PromptText(state.Prompt) is { } prompt)
+        if (PromptText(state.Prompt, state.Edit) is { } prompt)
         {
             frame.Fill(row, 0, layout.Width, Theme.StatusMessage);
             frame.Write(row, 1, prompt, Theme.StatusMessage);
@@ -198,8 +198,10 @@ public static class Screen
         _ => "1 scroll  2 edit  q quit",
     };
 
-    public static string? PromptText(Prompt prompt) => prompt switch
+    public static string? PromptText(Prompt prompt, Editing.EditSession? edit = null) => prompt switch
     {
+        Prompt.ConfirmCommit when edit is { AddsSyntaxErrors: true } =>
+            "Commit changes? ⚠ the edit adds syntax errors.  Enter commits · Esc returns to editing",
         Prompt.ConfirmCommit => "Commit changes?  Enter commits · Esc returns to editing",
         Prompt.ConfirmDiscard => "Unsaved changes.  Esc discards them · Enter stays here editing",
         Prompt.ConfirmQuit => "Unsaved changes.  Ctrl+C again quits without saving · Esc returns",

@@ -1,3 +1,5 @@
+using StringSearch.Editing;
+using StringSearch.Persistence;
 using StringSearch.Tui;
 
 namespace StringSearch.App;
@@ -5,7 +7,7 @@ namespace StringSearch.App;
 /// <summary>The interactive loop: render, read a key, update state.</summary>
 public static class TuiApp
 {
-    public static void Run(Session session)
+    public static void Run(Session session, SearchStore store)
     {
         using var terminal = new Terminal();
         var controller = new Controller(session.Items, o => session.Sources.Get(o.FilePath));
@@ -36,13 +38,10 @@ public static class TuiApp
 
             if (state.Effect == Effect.Commit)
             {
-                // Writing the file and updating .searches is milestone 6. Until then the edit stays
-                // in the buffer so nothing is lost.
-                state = state with
-                {
-                    Effect = Effect.None,
-                    Message = "Saving is not implemented yet; your changes are still in the buffer",
-                };
+                var result = Committer.Commit(session, store, state.Index, state.Edit!);
+                state = result.Success
+                    ? controller.LeaveEdit(state with { Index = result.Index }, viewHeight) with { Message = result.Message }
+                    : state with { Effect = Effect.None, Message = result.Message };
             }
         }
     }

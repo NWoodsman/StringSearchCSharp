@@ -1,4 +1,6 @@
 using System.Collections.Immutable;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Text;
 using StringSearch.Model;
 using StringSearch.Tui;
@@ -13,6 +15,7 @@ namespace StringSearch.Editing;
 public sealed record EditSession
 {
     private SourceDocument? _document;
+    private (SourceText Text, bool Value)? _addsSyntaxErrors;
 
     /// <summary>The file as it was when editing started.</summary>
     public required SourceDocument Original { get; init; }
@@ -61,6 +64,22 @@ public sealed record EditSession
     }
 
     public bool IsDirty => !Text.ContentEquals(Original.Text);
+
+    /// <summary>True when the edited text has more syntax errors than the original (e.g. an unclosed quote).</summary>
+    public bool AddsSyntaxErrors
+    {
+        get
+        {
+            if (_addsSyntaxErrors is { } cached && ReferenceEquals(cached.Text, Text))
+                return cached.Value;
+            bool value = ErrorCount(Text) > ErrorCount(Original.Text);
+            _addsSyntaxErrors = (Text, value);
+            return value;
+        }
+    }
+
+    private static int ErrorCount(SourceText text) =>
+        CSharpSyntaxTree.ParseText(text).GetDiagnostics().Count(d => d.Severity == DiagnosticSeverity.Error);
 
     /// <summary>
     /// The single change that turns the original text into the edited text (common prefix and

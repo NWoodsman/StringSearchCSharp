@@ -212,6 +212,11 @@ Use **Roslyn's syntax tree** (already a dependency), not csharp-ls. csharp-ls wo
   4. Find the new literal at the mapped original span start to get `newValue`. If the literal is gone (deleted), only the old value is removed from the set.
   5. Update the committed index (move the snippet from `(file, oldValue)` to `(file, newValue)`, see "Committed index semantics") → save `.searches`. Mark the occurrence as committed so it renders gray for the rest of the session.
   6. Optional: warn if the edit introduced new parse diagnostics (`tree.GetDiagnostics()`), so an unbalanced quote does not get saved silently. This should be a warning in the prompt, not a block.
+- *As built in milestone 6 (`Editing/Committer.cs`):*
+  - The file is re-read after writing (giving a fresh content hash) and re-scanned. Its list entries are rebuilt: strings that were listed before are found again at their position shifted by the patch, and keep their committed mark. Every string inside the edited region is listed, so a newly typed string appears, uncommitted. Strings outside the region that `.searches` hid at startup stay hidden.
+  - The edited string is the literal at `EditSession.StringSpan` (or the first one overlapping it). If it was deleted, only its old snippet is removed.
+  - Snippets of strings committed earlier this session that this edit moved (a neighboring line changed) are rewritten with the new context, so they stay hidden on the next run. Strings hidden at startup whose neighbors change are not rewritten, so they may come back once. That errs on the side of review.
+  - Session committed marks are tracked by occurrence reference, not by index, so they survive re-indexing.
 
 ## Testing
 
