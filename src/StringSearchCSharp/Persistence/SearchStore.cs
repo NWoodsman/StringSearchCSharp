@@ -1,5 +1,6 @@
 using System.Text.Encodings.Web;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using StringSearch.Model;
 
 namespace StringSearch.Persistence;
@@ -21,6 +22,7 @@ public sealed class SearchStore
         RespectRequiredConstructorParameters = true,
         // Local, human-readable file: keep non-ASCII and quotes unescaped where JSON allows it.
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) },
     };
 
     private readonly Dictionary<SearchKey, List<Snippet>> _entries;
@@ -70,7 +72,7 @@ public sealed class SearchStore
                 if (!entries.TryGetValue(key, out var list))
                     entries[key] = list = [];
                 list.AddRange(entry.Snippets.Select(s =>
-                    new Snippet(new SnippetContext(s.Before, s.Text, s.After), s.CommittedUtc)));
+                    new Snippet(new SnippetContext(s.Before, s.Text, s.After), s.CommittedUtc, s.Kind)));
             }
             return new SearchStore(path, entries, null);
         }
@@ -94,17 +96,19 @@ public sealed class SearchStore
     }
 
     /// <summary>
-    /// Removes one snippet under <paramref name="key"/> that matches <paramref name="context"/>,
-    /// preferring an exact context match. Drops the key when its last snippet is removed.
+    /// Removes one snippet under <paramref name="key"/> that matches <paramref name="context"/>
+    /// (and <paramref name="kind"/>, when given), preferring an exact context match. Drops the
+    /// key when its last snippet is removed.
     /// </summary>
-    public bool Remove(SearchKey key, SnippetContext context)
+    public bool Remove(SearchKey key, SnippetContext context, SnippetKind? kind = null)
     {
         if (!_entries.TryGetValue(key, out var list))
             return false;
 
-        int index = list.FindIndex(s => s.Context == context);
+        bool KindOk(Snippet s) => kind is null || s.Kind == kind;
+        int index = list.FindIndex(s => KindOk(s) && s.Context == context);
         if (index < 0)
-            index = list.FindIndex(s => s.Context.Matches(context));
+            index = list.FindIndex(s => KindOk(s) && s.Context.Matches(context));
         if (index < 0)
             return false;
 
@@ -126,7 +130,7 @@ public sealed class SearchStore
                     e.Key.RelativePath,
                     e.Key.Value,
                     e.Value.Select(s => new SnippetDto(
-                        s.Context.Before, s.Context.Text, s.Context.After, s.CommittedUtc)).ToList()))
+                        s.Context.Before, s.Context.Text, s.Context.After, s.CommittedUtc, s.Kind)).ToList()))
                 .ToList());
 
         var temp = FilePath + ".tmp";
@@ -141,5 +145,11 @@ public sealed class SearchStore
 
     private sealed record EntryDto(string File, string Value, List<SnippetDto> Snippets);
 
-    private sealed record SnippetDto(string Before, string Text, string After, DateTime CommittedUtc);
+    /// <summary>"kind" is written only for ignored snippets; a missing kind means committed (older files).</summary>
+    private sealed record SnippetDto(
+        string Before,
+        string Text,
+        string After,
+        DateTime CommittedUtc,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] SnippetKind Kind = SnippetKind.Committed);
 }

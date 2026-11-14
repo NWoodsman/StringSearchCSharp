@@ -2,10 +2,10 @@ using StringSearch.Model;
 
 namespace StringSearch.Scanning;
 
-/// <summary>Found strings split into those still to review and those already committed.</summary>
+/// <summary>Found strings split into those still to review and those hidden because .searches lists them.</summary>
 public sealed record FilterResult(
     IReadOnlyList<StringOccurrence> Visible,
-    IReadOnlyList<StringOccurrence> Ignored);
+    IReadOnlyList<StringOccurrence> Hidden);
 
 /// <summary>Hides found strings that match a committed snippet from <c>.searches</c>.</summary>
 public static class CommittedFilter
@@ -53,10 +53,10 @@ public static class CommittedFilter
         }
 
         var visible = new List<StringOccurrence>();
-        var ignored = new List<StringOccurrence>();
+        var hiddenItems = new List<StringOccurrence>();
         for (int i = 0; i < occurrences.Count; i++)
-            (hidden[i] ? ignored : visible).Add(occurrences[i]);
+            (hidden[i] ? hiddenItems : visible).Add(occurrences[i]);
 
-        return new FilterResult(visible, ignored);
+        return new FilterResult(visible, hiddenItems);
     }
 }

@@ -30,7 +30,7 @@ public class CommittedFilterTests
         var result = CommittedFilter.Apply(found, Commit(found[1]));
 
         Assert.Equal([found[0]], result.Visible);
-        Assert.Equal([found[1]], result.Ignored);
+        Assert.Equal([found[1]], result.Hidden);
     }
 
     [Fact]
@@ -74,7 +74,7 @@ public class CommittedFilterTests
 
         var result = CommittedFilter.Apply(found, Commit(found[2]));
 
-        Assert.Equal([found[1]], result.Ignored);
+        Assert.Equal([found[1]], result.Hidden);
         Assert.Equal(3, result.Visible.Count);
     }
 
@@ -87,7 +87,7 @@ public class CommittedFilterTests
 
         var result = CommittedFilter.Apply(found, Commit(found[1]));
 
-        Assert.Equal([found[1]], result.Ignored);
+        Assert.Equal([found[1]], result.Hidden);
     }
 
     [Fact]

@@ -3,21 +3,33 @@ using StringSearch.Scanning;
 
 namespace StringSearch.App;
 
+/// <summary>What the user did with a listed string this session.</summary>
+public enum ItemStatus
+{
+    /// <summary>Still to review.</summary>
+    Live,
+    /// <summary>Edited and committed; recorded in .searches.</summary>
+    Committed,
+    /// <summary>Marked as not needing review (I); recorded in .searches until restored.</summary>
+    Ignored,
+}
+
 /// <summary>The data a UI session works on: the strings to review plus scan statistics.</summary>
 public sealed class Session
 {
     private readonly List<StringOccurrence> _items;
     private (int Position, int Count)[] _filePositions = [];
 
-    // By reference: two identical occurrences (same file, span and value) can't coexist, but
-    // records compare by value and an item replaced after a commit must not inherit the mark.
-    private readonly HashSet<StringOccurrence> _committed = new(ReferenceEqualityComparer.Instance);
+    // By reference: records compare by value, and an item replaced after a commit must not
+    // inherit a mark by accident. Items not in the dictionary are live.
+    private readonly Dictionary<StringOccurrence, ItemStatus> _status = new(ReferenceEqualityComparer.Instance);
 
-    public Session(IReadOnlyList<StringOccurrence> items, ScanResult scan, int ignoredCount, SourceCache sources)
+    /// <param name="hiddenCount">Strings hidden at startup because .searches lists them.</param>
+    public Session(IReadOnlyList<StringOccurrence> items, ScanResult scan, int hiddenCount, SourceCache sources)
     {
         _items = [.. items];
         Scan = scan;
-        IgnoredCount = ignoredCount;
+        HiddenCount = hiddenCount;
         Sources = sources;
         ComputeFilePositions();
     }
@@ -26,17 +38,40 @@ public sealed class Session
     public IReadOnlyList<StringOccurrence> Items => _items;
 
     public ScanResult Scan { get; }
-    public int IgnoredCount { get; }
+
+    /// <summary>Strings hidden at startup because .searches lists them.</summary>
+    public int HiddenCount { get; }
+
     public SourceCache Sources { get; }
 
-    public int CommittedCount => _committed.Count;
+    public int CommittedCount => _status.Values.Count(s => s == ItemStatus.Committed);
+
+    /// <summary>Strings ignored this session (and not restored).</summary>
+    public int IgnoredCount => _status.Values.Count(s => s == ItemStatus.Ignored);
+
+    public ItemStatus Status(int index) => Status(_items[index]);
+
+    public ItemStatus Status(StringOccurrence occurrence) =>
+        _status.TryGetValue(occurrence, out var status) ? status : ItemStatus.Live;
+
+    public void SetStatus(int index, ItemStatus status) => SetStatus(_items[index], status);
+
+    private void SetStatus(StringOccurrence occurrence, ItemStatus status)
+    {
+        if (status == ItemStatus.Live)
+            _status.Remove(occurrence);
+        else
+            _status[occurrence] = status;
+    }
 
     /// <summary>True once the string at <paramref name="index"/> was committed this session.</summary>
-    public bool IsCommitted(int index) => IsCommitted(_items[index]);
+    public bool IsCommitted(int index) => Status(index) == ItemStatus.Committed;
 
-    public bool IsCommitted(StringOccurrence occurrence) => _committed.Contains(occurrence);
+    public bool IsCommitted(StringOccurrence occurrence) => Status(occurrence) == ItemStatus.Committed;
 
-    public void MarkCommitted(int index) => _committed.Add(_items[index]);
+    public bool IsIgnored(int index) => Status(index) == ItemStatus.Ignored;
+
+    public void MarkCommitted(int index) => SetStatus(index, ItemStatus.Committed);
 
     /// <summary>1-based position of item <paramref name="index"/> among the strings in its file.</summary>
     public (int Position, int Count) FilePosition(int index) => _filePositions[index];
@@ -55,9 +90,9 @@ public sealed class Session
 
     /// <summary>
     /// Replaces the items of <paramref name="filePath"/> with <paramref name="replacement"/>
-    /// (after the file was rewritten). Each entry says whether it is committed this session.
+    /// (after the file was rewritten), each with its status.
     /// </summary>
-    public void ReplaceFile(string filePath, IReadOnlyList<(StringOccurrence Occurrence, bool Committed)> replacement)
+    public void ReplaceFile(string filePath, IReadOnlyList<(StringOccurrence Occurrence, ItemStatus Status)> replacement)
     {
         var (start, count) = FileRange(filePath);
         if (count == 0)
@@ -69,15 +104,12 @@ public sealed class Session
         }
 
         foreach (var old in _items.GetRange(start, count))
-            _committed.Remove(old);
+            _status.Remove(old);
 
         _items.RemoveRange(start, count);
         _items.InsertRange(start, replacement.Select(r => r.Occurrence));
-        foreach (var (occurrence, committed) in replacement)
-        {
-            if (committed)
-                _committed.Add(occurrence);
-        }
+        foreach (var (occurrence, status) in replacement)
+            SetStatus(occurrence, status);
         ComputeFilePositions();
     }
 

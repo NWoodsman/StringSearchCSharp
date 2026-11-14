@@ -75,7 +75,7 @@ Today's initial task is to read design.md and create a plan to implement the app
 - Ctrl+S check (tmux): `stty` still reports `ixon`, but Ctrl+S reaches `Console.ReadKey`. Recorded in the plan's risks; milestone 5 will add `stty -ixon`.
 - Driving it in tmux found two problems, both fixed: a resize could leave the current string off-screen, and the location line was cut on the right (now the path is shortened from the left with `…`).
 - Tests: 108 passing (54 new: frame, ANSI, position bar, snippet view, controller transitions, source document, session).
-- Not committed yet.
+- Committed with the scroll-mode tweaks commit.
 
 ### Log: commit, then milestone 4, syntax highlighting (Claude Opus 5.5)
 
@@ -86,7 +86,7 @@ Today's initial task is to read design.md and create a plan to implement the app
 - `SnippetView.Draw` takes an optional highlight style.
 - Checked in tmux (decoding the escape codes): keywords, control keywords, types, methods, numbers, doc comments and interpolated-string parts are colored as expected.
 - Tests: 151 passing (43 new: token classes, disabled code, cache, normal vs committed screen rendering).
-- Not committed yet.
+- Committed with the scroll-mode tweaks commit.
 
 ### Log: commit, then milestone 5, edit mode (Claude Opus 5.5)
 
@@ -110,7 +110,7 @@ Today's initial task is to read design.md and create a plan to implement the app
 - `TuiApp`: on `Effect.Commit` it shows "Saving is not implemented yet" and keeps the buffer. Milestone 6 replaces this with the real commit.
 - Manual check in tmux: entering edit mode, typing digits, Backspace and End, both prompts, discarding, Enter splitting a line, and the Ctrl+C prompt then quit. The sample file's md5 was unchanged, so nothing is written yet.
 - Tests: 199 passing (48 new: EditSession, edit-mode controller flows, cursor output, cursor in the snippet, prompt rendering).
-- Not committed yet.
+- Committed with the scroll-mode tweaks commit.
 
 ### Log: commit, then milestone 6, commit pipeline (Claude Opus 5.5)
 
@@ -127,7 +127,7 @@ Today's initial task is to read design.md and create a plan to implement the app
 - `Model/Display.Quote` moved out of `Program.cs`, so the commit message and `--list` share it.
 - Manual check in tmux on a copy of the sample: edit, Ctrl+S, Enter. The file was written, the snippet grayed with strike-through, `✓ committed` shown, and `.searches` written. After a relaunch, the string was hidden (1 ignored, 9/9 strings).
 - Tests: 220 passing (21 new: file content and message, next-run hiding, UTF-8 BOM + CRLF, UTF-16 + Unix permissions, file changed on disk, re-editing a committed string, hidden strings staying hidden, a new string typed in, a deleted string, a neighbor's snippet moving, other files unaffected, `MapStart`, encoder preambles, the syntax-error prompt).
-- Not committed yet.
+- Committed with the scroll-mode tweaks commit.
 
 ### Log: commit, then milestone 7, polish (Claude Opus 5.5)
 
@@ -147,3 +147,41 @@ Today's initial task is to read design.md and create a plan to implement the app
 - Note: tmux `send-keys Escape q` in one call arrives as Alt+Q (an escape sequence), so tests must send Esc separately. Not an issue for a person typing.
 - Tests: 224 passing (4 new: unreadable file during the scan, missing-file placeholder, edit refused for a vanished or changed file and the screen messages, an unchanged file matching its occurrences).
 - Committed (milestone 7 polish commit).
+
+### Log: Enter opens edit mode from scroll mode (Claude Opus 5.5)
+
+- User request: in scroll mode, Enter should behave like `2` and open edit mode.
+- `Controller.HandleScroll`: `Enter` calls `EnterEdit` (the same path as `2`). The Enter key is not typed into the new buffer. Waiting mode is unchanged (only `2` opens edit mode there).
+- Updated the scroll-mode hints (`Enter/2 edit`), the help screen, `--help` and the README key table.
+- Test: Enter in scroll mode gives the same edit state as `2` (cursor, scroll position, clean buffer). 225 passing. Checked in tmux: `1`, then Enter, opens EDIT with "Δ +0 −0".
+
+### Log: I to ignore / restore strings in scroll mode (Claude Opus 5.5)
+
+- User request: in scroll mode, I marks the current string as ignored. It is grayed right away, in a gray different from committed, and recorded in `.searches` so it is hidden in future runs. Pressing I again restores it, with its colors back and its record removed.
+- `.searches`: snippets gained an optional `"kind": "ignored"` (`SnippetKind`; the enum is serialized as camelCase and the field is written only for ignored snippets). Snippets without a kind load as committed, so existing files still work and the version stays 1. `SearchStore.Remove` can be limited to one kind. On load, both kinds hide a string the same way.
+- `App/Session`: a per-item `ItemStatus` (Live / Committed / Ignored) by reference replaces the committed-only set. Added `IgnoredCount` (this session). The startup count is renamed `HiddenCount`, and `FilterResult.Ignored` is renamed `Hidden`, to avoid two meanings of "ignored". The info line now reads "N committed · M ignored this session · K hidden by .searches · …".
+- `Controller`: `i`/`I` in scroll mode requests `Effect.ToggleIgnore`. It does nothing in waiting mode and is typed as text in edit mode. Enter/2 on an ignored string is refused ("press I to restore it before editing"). The controller takes an optional status lookup.
+- `Editing/Ignorer.Toggle`: adds or removes the ignored snippet, saves the store (undoing the change if the save fails), and sets the status. It refuses committed strings ("Already committed"). `TuiApp` runs it for the effect.
+- `Committer`: carries any status (not only committed) through re-indexing. It refreshes the snippets of committed or ignored neighbors whose context changed, keeping their kind. Marked strings that fall inside the edited region (other than the edited one) lose their snippet and become live.
+- Theme: `Ignored` (warm gray #857A6E), `IgnoredString` (italic on #3A332C), and a `⊘ ignored` badge, distinct from committed (slate #6E7681, strike-through, `✓ committed`).
+- Scroll hints are now `←→ string  ↑↓ PgUp PgDn scroll  Enter edit  I ignore  Esc back`. Updated the help screen, `--help`, the exit summary ("N committed, M ignored") and the README.
+- Tests: 235 passing (10 new: the I key per mode, ignored strings not editable, the ignore record and next-run hiding, restore removing the record, committed strings not ignorable, old files without a kind, ignored vs committed colors and the restore of colors, an ignored neighbor kept and refreshed by a commit). Checked in tmux on a sample copy: ignore, restore, ignore, quit summary, next run hides the string.
+- Committed with the scroll-mode tweaks commit.
+
+### Log: move to the next string after ignoring (Claude Opus 5.5)
+
+- User request: after I grays a string, move on to the next one automatically.
+- `Ignorer.Toggle` now returns `IgnoreResult(Ignored, Message)`.
+- New `Controller.AfterIgnoreToggle` (pure, so it is unit tested): after an ignore it selects and centers the next string, with the message `Ignored "x"; ← goes back to it`. At the last string it stays put with `…; press I again to restore it`. A restore (or a refused/failed toggle) stays on the same string. It moves to the next string in the list even if that one is already ignored or committed.
+- `TuiApp` uses it for `Effect.ToggleIgnore`.
+- Tests: 236 passing. Checked in tmux: `i` moves to 2/10 with the message; ← shows the first string as `⊘ ignored`; `i` there restores it in place.
+
+### Log: Ctrl+I live-only navigation (Claude Opus 5.5)
+
+- User request: Ctrl+I toggles a scroll-mode setting where ←/→ jump to the next live string, skipping ignored and committed ones. Pressing it again steps through every string.
+- Terminal limitation (checked in tmux): Ctrl+I and Tab are the same byte (0x09), and .NET reports both as `ConsoleKey.Tab` with no modifiers. So in scroll mode Tab toggles too. A real Ctrl+I chord (`ConsoleKey.I` with Control, from terminals with extended key reporting) is accepted as well. In edit mode Tab still inserts a tab.
+- `AppState.LiveOnly` (default off); the setting stays on when leaving and re-entering scroll mode.
+- `Controller`: the toggle shows an on/off message. A new `NextIndex` applies the filter to ←/→ (message "No live strings ahead/behind (Ctrl+I steps through all)" at the ends) and to the automatic move after `I`.
+- The mode badge shows `SCROLL · LIVE ONLY`. Updated the help screen, `--help` and the README. The status-bar hints are unchanged (no room).
+- Tests: 241 passing (5 new: toggling with skips both ways and the end message, the real Ctrl+I chord, Tab typed in edit mode, ignore in live-only moving to the next live string, the badge). Checked in tmux: after ignoring 2/10 and 3/10, Ctrl+I then → went from 1/10 to 4/10. Ctrl+I off then ← reached the ignored 3/10.
+- Committed with the scroll-mode tweaks commit.

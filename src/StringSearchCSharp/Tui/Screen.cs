@@ -69,6 +69,14 @@ public static class Screen
             return;
         }
 
+        if (session.IsIgnored(state.Index))
+        {
+            // Set aside: a different (warmer) gray, so it is not mistaken for committed.
+            SnippetView.Draw(frame, layout, document, state.TopLine, occurrence.Span,
+                _ => Theme.Ignored, Theme.IgnoredString);
+            return;
+        }
+
         var classes = Highlighter.For(document);
         SnippetView.Draw(frame, layout, document, state.TopLine, occurrence.Span,
             position => position < classes.Length ? Highlighter.StyleOf(classes[position]) : Style.Default);
@@ -76,7 +84,7 @@ public static class Screen
 
     private static void DrawLocation(Frame frame, Layout layout, Session session, AppState state)
     {
-        var badge = $" {state.Mode.ToString().ToUpperInvariant()} ";
+        var badge = $" {state.Mode.ToString().ToUpperInvariant()}{(state.LiveOnly && state.Mode == Mode.Scroll ? " · LIVE ONLY" : "")} ";
         int badgeCol = layout.Width - badge.Length;
         frame.Write(layout.LocationRow, badgeCol, badge, Theme.ModeBadge(state.Mode));
 
@@ -97,6 +105,8 @@ public static class Screen
             frame.Write(layout.LocationRow, col, "   ⚠ changed since scan", Theme.ModifiedBadge, badgeCol - 1);
         else if (session.IsCommitted(state.Index))
             frame.Write(layout.LocationRow, col, "   ✓ committed", Theme.CommittedBadge, badgeCol - 1);
+        else if (session.IsIgnored(state.Index))
+            frame.Write(layout.LocationRow, col, "   ⊘ ignored", Theme.IgnoredBadge, badgeCol - 1);
     }
 
     /// <summary>Keeps the end of <paramref name="text"/> (the file name and position), dropping the start.</summary>
@@ -120,7 +130,8 @@ public static class Screen
         int tests = skipped.Count(f => f.Reason == SkipReason.Test);
         int unreadable = skipped.Count(f => f.Reason == SkipReason.Unreadable);
         frame.Write(layout.InfoRow, 0,
-            $"{session.CommittedCount} committed this session · {session.IgnoredCount} ignored via {SearchStore.FileName} · " +
+            $"{session.CommittedCount} committed · {session.IgnoredCount} ignored this session · " +
+            $"{session.HiddenCount} hidden by {SearchStore.FileName} · " +
             $"{session.Scan.ScannedFiles.Count} files scanned · skipped {tests} test, {skipped.Count - tests - unreadable} build" +
             (unreadable > 0 ? $", {unreadable} unreadable" : "") + " files",
             Theme.Muted);
@@ -149,6 +160,9 @@ public static class Screen
                 "↑ ↓        scroll one line",
                 "PgUp PgDn  scroll six lines",
                 "Home       re-center on the current string",
+                "Enter / 2  edit the current string",
+                "I          ignore / restore the current string (hidden in future runs)",
+                "Ctrl+I     live only: ←/→ skip ignored and committed strings (toggle; Tab too)",
                 "Esc        back to this screen",
                 "",
                 "In edit mode:",
@@ -203,7 +217,7 @@ public static class Screen
 
     private static string Hints(Mode mode) => mode switch
     {
-        Mode.Scroll => "←→ string  ↑↓ PgUp PgDn scroll  Home center  2 edit  Esc back",
+        Mode.Scroll => "←→ string  ↑↓ PgUp PgDn scroll  Enter edit  I ignore  Esc back",
         Mode.Edit => "type to edit  Ctrl+S commit  Esc leave",
         _ => "1 scroll  2 edit  q quit",
     };

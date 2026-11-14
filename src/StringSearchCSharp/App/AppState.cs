@@ -28,8 +28,10 @@ public enum Prompt
 public enum Effect
 {
     None,
-    /// <summary>Write the edit to disk and update .searches (milestone 6).</summary>
+    /// <summary>Write the edit to disk and update .searches.</summary>
     Commit,
+    /// <summary>Toggle the current string between live and ignored, and update .searches.</summary>
+    ToggleIgnore,
 }
 
 /// <summary>Everything the UI needs to know about where the user is. Immutable.</summary>
@@ -41,6 +43,7 @@ public enum Effect
 /// <param name="Edit">The edit in progress (edit mode only).</param>
 /// <param name="Prompt">Open question, if any.</param>
 /// <param name="Effect">Pending side effect for the app loop.</param>
+/// <param name="LiveOnly">Scroll navigation skips ignored and committed strings (Ctrl+I / Tab toggles).</param>
 public sealed record AppState(
     Mode Mode,
     int Index,
@@ -49,7 +52,8 @@ public sealed record AppState(
     bool Quit = false,
     EditSession? Edit = null,
     Prompt Prompt = Prompt.None,
-    Effect Effect = Effect.None)
+    Effect Effect = Effect.None,
+    bool LiveOnly = false)
 {
     public static readonly AppState Initial = new(Mode.Waiting, 0, 0);
 }

@@ -34,6 +34,11 @@ public static class Theme
     // Committed strings: the whole snippet loses its syntax colors.
     public static readonly Style Committed = new(Fg: Rgb.FromHex(0x6E7681));
     public static readonly Style CommittedString = new(Fg: Rgb.FromHex(0xA0A8B0), Bg: Rgb.FromHex(0x2D333B), Attr: TextAttr.Strikethrough);
+    // Ignored strings: a warmer, darker gray than committed, without strike-through.
+    public static readonly Style Ignored = new(Fg: Rgb.FromHex(0x857A6E));
+    public static readonly Style IgnoredString = new(Fg: Rgb.FromHex(0xB0A595), Bg: Rgb.FromHex(0x3A332C), Attr: TextAttr.Italic);
+    public static readonly Style IgnoredBadge = new(Fg: Rgb.FromHex(0xB0A595), Attr: TextAttr.Bold);
+
     public static readonly Style EditedString = new(Fg: Rgb.FromHex(0xFFE9A8), Bg: Rgb.FromHex(0x1F3A2A));
     public static readonly Style ModifiedBadge = new(Fg: Rgb.FromHex(0xF5A524), Attr: TextAttr.Bold);
     public static readonly Style CommittedBadge = new(Fg: Rgb.FromHex(0x3FB950), Attr: TextAttr.Bold);

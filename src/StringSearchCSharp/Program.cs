@@ -9,7 +9,8 @@ const string Help = $"""
 
     Finds the string literals in the C# files under <directory> and lets you review and edit
     them in a full-screen terminal UI. Strings you commit are recorded in <directory>/.searches
-    and skipped on later runs; delete that file to review everything again.
+    and skipped on later runs, as are strings you mark as ignored (I); delete that file to
+    review everything again.
 
     Skipped: bin/, obj/ and .git/, and test code (a folder or file name that is "test" or
     "tests", ends in Test/Tests, or starts with test(s) followed by a capital letter or . _ -).
@@ -20,7 +21,8 @@ const string Help = $"""
 
     Keys:
       1            scroll mode: ←/→ previous/next string, ↑/↓ one line, PgUp/PgDn six lines,
-                   Home re-center, Esc back
+                   Home re-center, Enter or 2 edit, I ignore/restore,
+                   Ctrl+I (or Tab) toggle live only: ←/→ skip ignored and committed, Esc back
       2            edit mode: type to edit, Ctrl+S commit, Esc leave (both ask first)
       q / Ctrl+C   quit
     """;
@@ -76,7 +78,7 @@ var filtered = CommittedFilter.Apply(scan.Occurrences, store.Entries);
 if (interactive)
 {
     Console.Error.Write("\r\u001b[K");
-    var session = new Session(filtered.Visible, scan, filtered.Ignored.Count, new SourceCache());
+    var session = new Session(filtered.Visible, scan, filtered.Hidden.Count, new SourceCache());
     try
     {
         TuiApp.Run(session, store, initialMessage: store.LoadWarning);
@@ -90,9 +92,10 @@ if (interactive)
         return 2;
     }
 
-    Console.WriteLine(session.CommittedCount == 0
-        ? "No strings committed."
-        : $"{session.CommittedCount} string{(session.CommittedCount == 1 ? "" : "s")} committed; recorded in {store.FilePath}.");
+    static string Plural(int n) => n == 1 ? "" : "s";
+    Console.WriteLine(session.CommittedCount + session.IgnoredCount == 0
+        ? "No strings committed or ignored."
+        : $"{session.CommittedCount} string{Plural(session.CommittedCount)} committed, {session.IgnoredCount} ignored; recorded in {store.FilePath}.");
     return 0;
 }
 
@@ -108,7 +111,7 @@ int Count(SkipReason reason) => scan.SkippedFiles.Count(f => f.Reason == reason)
 Console.WriteLine();
 Console.WriteLine(
     $"{filtered.Visible.Count} strings in {scan.ScannedFiles.Count} files; " +
-    $"{filtered.Ignored.Count} ignored via {SearchStore.FileName}; " +
+    $"{filtered.Hidden.Count} hidden by {SearchStore.FileName}; " +
     $"{scan.SkippedFiles.Count} files skipped ({Count(SkipReason.Test)} test, {Count(SkipReason.BuildOutput)} build output" +
     (Count(SkipReason.Unreadable) > 0 ? $", {Count(SkipReason.Unreadable)} unreadable" : "") + ")");
 

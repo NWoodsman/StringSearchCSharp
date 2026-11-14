@@ -30,7 +30,7 @@ the UI.
 ```
 ⣿⣿⣿⣿⣿⣿⣿⡆●                                           42/318   position bar
 src/Services/Mailer.cs:118:24   string 3/7 in file      SCROLL   location, mode
-2 committed this session · 57 ignored via .searches · …          statistics
+2 committed · 1 ignored this session · 57 hidden by .searches · … statistics
 ─────────────────────────────────────────────────────────────
  117 │     _log.Info("Preparing");
  118 │     _log.Info("Sending message to {0}", m.To);             snippet, syntax-highlighted,
@@ -40,7 +40,11 @@ src/Services/Mailer.cs:118:24   string 3/7 in file      SCROLL   location, mode
 ```
 
 The braille bar grows as you move through the results and shifts from blue to green near
-the end. Committed strings are shown grayed out and struck through.
+the end. Committed strings are shown in a cool gray with the string struck through; ignored
+strings in a warmer gray with the string in italics.
+
+Strings recorded in `.searches` from earlier runs are not shown; the info line counts them as
+"hidden by .searches".
 
 ## Keys
 
@@ -53,7 +57,9 @@ the end. Committed strings are shown grayed out and struck through.
 | | `↑` `↓` | scroll one line |
 | | `PgUp` `PgDn` | scroll six lines |
 | | `Home` | re-center on the current string |
-| | `2` | edit mode |
+| | `Enter` or `2` | edit mode |
+| | `I` | ignore the string (grayed, recorded in `.searches`, hidden in future runs) and move to the next; `I` again restores it |
+| | `Ctrl+I` | toggle live only: `←` `→` (and the move after `I`) skip ignored and committed strings. Terminals send `Ctrl+I` as `Tab`, so `Tab` toggles too |
 | | `Esc` | back to waiting mode |
 | edit (2) | typing | inserts text, digits included; `Enter`, `Tab`, `Backspace`, `Delete` |
 | | arrows, `Home`, `End`, `PgUp`, `PgDn` | move the cursor |
@@ -62,7 +68,8 @@ the end. Committed strings are shown grayed out and struck through.
 | anywhere | `Ctrl+C` | quit (asks first if there are unsaved changes) |
 
 Only `Esc` leaves edit mode. You can edit the string and the code around it. The commit
-prompt warns if the edit adds syntax errors.
+prompt warns if the edit adds syntax errors. Ignored strings can't be edited until restored,
+and committed strings can't be ignored (they are already recorded).
 
 ## What gets scanned
 
@@ -76,7 +83,7 @@ prompt warns if the edit adds syntax errors.
 
 `--list` shows the skipped files and why.
 
-## Committing and `.searches`
+## Committing, ignoring and `.searches`
 
 Committing an edit:
 
@@ -86,8 +93,12 @@ Committing an edit:
 3. re-scans the file and marks the edited string as committed;
 4. records the string in `<directory>/.searches`.
 
-`.searches` is JSON. Each entry is a file and an exact string value; each committed copy of
-that string is a snippet holding its own line and the nearest non-blank lines above and below:
+Ignoring a string (`I`) records it the same way without changing the source file; pressing
+`I` again removes the record.
+
+`.searches` is JSON. Each entry is a file and an exact string value; each committed or ignored
+copy of that string is a snippet holding its own line and the nearest non-blank lines above
+and below. Ignored snippets carry `"kind": "ignored"`; snippets without a kind are committed:
 
 ```json
 {
@@ -98,7 +109,9 @@ that string is a snippet holding its own line and the nearest non-blank lines ab
       "value": "Hello",
       "snippets": [
         { "before": "var name = GetName();", "text": "Console.WriteLine(\"Hello\");",
-          "after": "return;", "committedUtc": "2026-11-14T10:00:00Z" }
+          "after": "return;", "committedUtc": "2026-11-14T10:00:00Z" },
+        { "before": "// fallback", "text": "Log(\"Hello\");",
+          "after": "}", "committedUtc": "2026-11-14T10:05:00Z", "kind": "ignored" }
       ]
     }
   ]
@@ -126,7 +139,7 @@ src/StringSearchCSharp/
   Model/        StringOccurrence, SearchKey, Snippet(Context), SourceDocument, Display
   Scanning/     StringScanner (Roslyn), PathFilter, CommittedFilter
   Persistence/  SearchStore (.searches)
-  Editing/      EditSession, Committer, FileWriter
+  Editing/      EditSession, Committer, FileWriter, Ignorer
   Tui/          Terminal, Frame, AnsiWriter, Layout, PositionBar, SnippetView, Highlighter, Screen, Theme
   App/          AppState, Controller (modal state machine), Session, TuiApp
 src/tests/StringSearch.Tests/   xUnit tests

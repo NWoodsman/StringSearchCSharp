@@ -50,14 +50,21 @@ public static class Committer
         var edited = FindEdited(rescanned, edit.StringSpan);
         var replacement = Reconcile(session, oldItems, rescanned, patch, edited);
 
-        // 3. Update the committed snippets.
+        // 3. Update the recorded snippets.
         if (session.IsCommitted(old))
-            store.Remove(old.Key, old.Context);
-        foreach (var (before, after) in MovedCommitted(session, oldItems, rescanned, patch))
+            store.Remove(old.Key, old.Context, SnippetKind.Committed);
+        foreach (var item in oldItems)
         {
-            // Strings committed earlier this session whose surroundings this edit changed.
-            if (store.Remove(before.Key, before.Context))
-                store.Add(after.Key, new Snippet(after.Context, now));
+            // Other committed/ignored strings inside the edited region: the edit rewrote them,
+            // so they are live again and their snippets go.
+            if (!ReferenceEquals(item, old) && Kind(session.Status(item)) is { } kind && MapStart(item.Span, patch) is null)
+                store.Remove(item.Key, item.Context, kind);
+        }
+        foreach (var (before, after, kind) in MovedMarked(session, oldItems, rescanned, patch))
+        {
+            // Committed/ignored strings whose surroundings this edit changed: keep them hidden next run.
+            if (store.Remove(before.Key, before.Context, kind))
+                store.Add(after.Key, new Snippet(after.Context, now, kind));
         }
         if (edited is not null)
             store.Add(edited.Key, new Snippet(edited.Context, now));
@@ -86,12 +93,19 @@ public static class Committer
         rescanned.FirstOrDefault(o => o.Span == stringSpan)
         ?? rescanned.FirstOrDefault(o => o.Span.OverlapsWith(stringSpan) || (stringSpan.IsEmpty && o.Span.Contains(stringSpan.Start)));
 
+    private static SnippetKind? Kind(ItemStatus status) => status switch
+    {
+        ItemStatus.Committed => SnippetKind.Committed,
+        ItemStatus.Ignored => SnippetKind.Ignored,
+        _ => null,
+    };
+
     /// <summary>
     /// The file's new list: strings that were listed before (found again at their position
-    /// shifted by the patch, keeping their committed mark), plus every string inside the edited
-    /// region. Strings outside the region that were not listed (hidden by .searches) stay hidden.
+    /// shifted by the patch, keeping their status), plus every string inside the edited region
+    /// (live). Strings outside the region that were not listed (hidden by .searches) stay hidden.
     /// </summary>
-    private static List<(StringOccurrence, bool)> Reconcile(Session session, List<StringOccurrence> oldItems,
+    private static List<(StringOccurrence, ItemStatus)> Reconcile(Session session, List<StringOccurrence> oldItems,
         IReadOnlyList<StringOccurrence> rescanned, TextChange patch, StringOccurrence? edited)
     {
         var byNewStart = new Dictionary<int, StringOccurrence>();
@@ -102,29 +116,29 @@ public static class Committer
         }
 
         var region = new TextSpan(patch.Span.Start, patch.NewText!.Length);
-        var result = new List<(StringOccurrence, bool)>();
+        var result = new List<(StringOccurrence, ItemStatus)>();
         foreach (var occurrence in rescanned)
         {
             if (ReferenceEquals(occurrence, edited))
-                result.Add((occurrence, true));
+                result.Add((occurrence, ItemStatus.Committed));
             else if (byNewStart.TryGetValue(occurrence.Span.Start, out var before))
-                result.Add((occurrence, session.IsCommitted(before)));
+                result.Add((occurrence, session.Status(before)));
             else if (occurrence.Span.IntersectsWith(region) || occurrence.Span.OverlapsWith(region))
-                result.Add((occurrence, false));
+                result.Add((occurrence, ItemStatus.Live));
         }
         return result;
     }
 
-    private static IEnumerable<(StringOccurrence Before, StringOccurrence After)> MovedCommitted(
+    private static IEnumerable<(StringOccurrence Before, StringOccurrence After, SnippetKind Kind)> MovedMarked(
         Session session, List<StringOccurrence> oldItems, IReadOnlyList<StringOccurrence> rescanned, TextChange patch)
     {
         foreach (var item in oldItems)
         {
-            if (!session.IsCommitted(item) || MapStart(item.Span, patch) is not { } mapped)
+            if (Kind(session.Status(item)) is not { } kind || MapStart(item.Span, patch) is not { } mapped)
                 continue;
             var after = rescanned.FirstOrDefault(o => o.Span.Start == mapped);
             if (after is not null && after.Context != item.Context)
-                yield return (item, after);
+                yield return (item, after, kind);
         }
     }
 

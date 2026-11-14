@@ -20,7 +20,7 @@ public class CommitterTests : IDisposable
         var scan = StringScanner.ScanDirectory(_dir.Path);
         var store = SearchStore.Load(_dir.Path);
         var filtered = CommittedFilter.Apply(scan.Occurrences, store.Entries);
-        return (new Session(filtered.Visible, scan, filtered.Ignored.Count, new SourceCache()), store);
+        return (new Session(filtered.Visible, scan, filtered.Hidden.Count, new SourceCache()), store);
     }
 
     private static int IndexOf(Session session, string value) =>
@@ -78,7 +78,7 @@ public class CommitterTests : IDisposable
         var (next, _) = Open();
 
         Assert.Equal(["other"], next.Items.Select(o => o.Value));
-        Assert.Equal(1, next.IgnoredCount);
+        Assert.Equal(1, next.HiddenCount);
     }
 
     [Fact]

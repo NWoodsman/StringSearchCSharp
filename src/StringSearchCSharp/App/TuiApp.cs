@@ -11,7 +11,7 @@ public static class TuiApp
     public static void Run(Session session, SearchStore store, string? initialMessage = null)
     {
         using var terminal = new Terminal();
-        var controller = new Controller(session.Items, o => session.Sources.Get(o.FilePath));
+        var controller = new Controller(session.Items, o => session.Sources.Get(o.FilePath), session.Status);
         var state = AppState.Initial with { Message = initialMessage };
         Frame? previous = null;
 
@@ -36,6 +36,12 @@ public static class TuiApp
 
             int viewHeight = new Layout(width, height).SnippetHeight;
             state = controller.Handle(state, key.Value, viewHeight);
+
+            if (state.Effect == Effect.ToggleIgnore)
+            {
+                var result = Ignorer.Toggle(session, store, state.Index);
+                state = controller.AfterIgnoreToggle(state, result.Ignored, result.Message, viewHeight);
+            }
 
             if (state.Effect == Effect.Commit)
             {

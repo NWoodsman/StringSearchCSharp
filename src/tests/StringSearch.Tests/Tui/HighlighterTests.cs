@@ -148,6 +148,6 @@ public class ScreenHighlightTests
         Assert.Equal(Theme.Committed, frame[4, Col(frame, 4, "class")].Style);
         Assert.Equal(Theme.CommittedString, frame[row, Col(frame, row, "\"hi\"")].Style);
         Assert.Contains("✓ committed", frame.RowText(1));
-        Assert.Contains("1 committed this session", frame.RowText(2));
+        Assert.Contains("1 committed · 0 ignored this session", frame.RowText(2));
     }
 }

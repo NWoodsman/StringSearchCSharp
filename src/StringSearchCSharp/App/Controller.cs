@@ -8,8 +8,16 @@ namespace StringSearch.App;
 /// or the file system (side effects are requested through <see cref="AppState.Effect"/>), so
 /// every transition can be unit tested.
 /// </summary>
-public sealed class Controller(IReadOnlyList<StringOccurrence> items, Func<StringOccurrence, SourceDocument> documents)
+/// <param name="status">What the user did with a string this session; everything is live if null.</param>
+public sealed class Controller(
+    IReadOnlyList<StringOccurrence> items,
+    Func<StringOccurrence, SourceDocument> documents,
+    Func<StringOccurrence, ItemStatus>? status = null)
 {
+    public const string IgnoredNotEditable = "This string is ignored; press I to restore it before editing";
+    public const string LiveOnlyOn = "Live only: ←/→ skip ignored and committed strings (Ctrl+I to stop)";
+    public const string LiveOnlyOff = "Stepping through all strings";
+
     /// <summary>Lines moved by PgUp/PgDn.</summary>
     public const int PageLines = 6;
 
@@ -68,6 +76,19 @@ public sealed class Controller(IReadOnlyList<StringOccurrence> items, Func<Strin
             : Focus(state, state.Index, viewHeight);
     }
 
+    /// <summary>
+    /// Called by the app loop after an ignore toggle. A string that was just ignored is left
+    /// behind (it stays gray) and the next string is selected; at the last string, or after a
+    /// restore, the selection stays put.
+    /// </summary>
+    public AppState AfterIgnoreToggle(AppState state, bool ignored, string message, int viewHeight)
+    {
+        state = state with { Effect = Effect.None };
+        if (ignored && NextIndex(state, +1) is { } next)
+            return Focus(state, next, viewHeight) with { Message = $"{message}; ← goes back to it" };
+        return state with { Message = ignored ? $"{message}; press I again to restore it" : message };
+    }
+
     /// <summary>Called by the app loop after it carried out a commit (or failed to).</summary>
     public AppState LeaveEdit(AppState state, int viewHeight) =>
         state with
@@ -99,9 +120,18 @@ public sealed class Controller(IReadOnlyList<StringOccurrence> items, Func<Strin
             case ConsoleKey.PageUp: return ScrollBy(state, -PageLines, viewHeight);
             case ConsoleKey.PageDown: return ScrollBy(state, +PageLines, viewHeight);
             case ConsoleKey.Home: return Focus(state, state.Index, viewHeight);
+            case ConsoleKey.Enter: return EnterEdit(state, viewHeight); // same as 2
+            case ConsoleKey.Tab: // terminals send Ctrl+I as Tab (0x09); a real Ctrl+I also works
+            case ConsoleKey.I when key.Modifiers.HasFlag(ConsoleModifiers.Control):
+                return state with { LiveOnly = !state.LiveOnly, Message = state.LiveOnly ? LiveOnlyOff : LiveOnlyOn };
         }
 
-        return key.KeyChar == '2' ? EnterEdit(state, viewHeight) : state;
+        return key.KeyChar switch
+        {
+            '2' => EnterEdit(state, viewHeight),
+            'i' or 'I' when items.Count > 0 => state with { Effect = Effect.ToggleIgnore },
+            _ => state,
+        };
     }
 
     private AppState EnterEdit(AppState state, int viewHeight)
@@ -109,6 +139,8 @@ public sealed class Controller(IReadOnlyList<StringOccurrence> items, Func<Strin
         if (items.Count == 0)
             return state with { Message = "No string to edit" };
         var occurrence = items[state.Index];
+        if (status?.Invoke(occurrence) == ItemStatus.Ignored)
+            return state with { Message = IgnoredNotEditable };
         var document = documents(occurrence);
         if (document.LoadError is { } error)
             return state with { Message = $"Cannot edit: {error}" };
@@ -176,12 +208,30 @@ public sealed class Controller(IReadOnlyList<StringOccurrence> items, Func<Strin
     {
         if (items.Count == 0)
             return state;
-        int target = state.Index + delta;
-        if (target < 0)
-            return state with { Message = "Already at the first string" };
-        if (target >= items.Count)
-            return state with { Message = "Already at the last string" };
-        return Focus(state, target, viewHeight);
+        if (NextIndex(state, delta) is { } target)
+            return Focus(state, target, viewHeight);
+
+        string direction = delta < 0 ? "behind" : "ahead";
+        return state with
+        {
+            Message = state.LiveOnly
+                ? $"No live strings {direction} (Ctrl+I steps through all)"
+                : delta < 0 ? "Already at the first string" : "Already at the last string",
+        };
+    }
+
+    /// <summary>
+    /// The next index in direction <paramref name="delta"/> (±1); in live-only mode the next one
+    /// that is neither ignored nor committed. Null when there is none.
+    /// </summary>
+    private int? NextIndex(AppState state, int delta)
+    {
+        for (int i = state.Index + delta; i >= 0 && i < items.Count; i += delta)
+        {
+            if (!state.LiveOnly || status is null || status(items[i]) == ItemStatus.Live)
+                return i;
+        }
+        return null;
     }
 
     private AppState ScrollBy(AppState state, int delta, int viewHeight)

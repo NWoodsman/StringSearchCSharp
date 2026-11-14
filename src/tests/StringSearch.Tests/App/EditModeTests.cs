@@ -44,6 +44,18 @@ public class EditModeTests
     }
 
     [Fact]
+    public void Enter_in_scroll_mode_enters_edit_mode_like_two()
+    {
+        var viaEnter = Press(AppState.Initial, Char('1'), Key(ConsoleKey.Enter, '\r'));
+        var viaTwo = InEdit();
+
+        Assert.Equal(Mode.Edit, viaEnter.Mode);
+        Assert.Equal(viaTwo.Edit!.Cursor, viaEnter.Edit!.Cursor);
+        Assert.Equal(viaTwo.TopLine, viaEnter.TopLine);
+        Assert.False(viaEnter.Edit.IsDirty); // the Enter itself is not typed into the buffer
+    }
+
+    [Fact]
     public void Two_from_waiting_mode_also_enters_edit_mode()
     {
         Assert.Equal(Mode.Edit, Press(AppState.Initial, Char('2')).Mode);
