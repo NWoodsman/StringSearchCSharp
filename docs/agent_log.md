@@ -53,3 +53,26 @@ Today's initial task is to read design.md and create a plan to implement the app
 - Tests: 54 passing. They cover scanner values and context, all 29 path-filter examples, the store's round trip, JSON shape and corrupt-file handling, and the committed-filter cases from the plan.
 - Manual check: on a sample tree with a hand-written `.searches`, the committed string was hidden. A corrupt file was moved to `.bak` with a warning. On this repo, `src/tests` and the `obj/` files are skipped.
 - Nothing committed.
+
+### Log: commit, then milestone 3, terminal and scroll mode (Claude Opus 5.5)
+
+- Created branch `string-search-tui` and committed the earlier work (`9c62c05` docs, `99e05ca` milestones 1–2).
+- `Tui/`:
+  - `Style` (24-bit `Rgb`, attributes) and `CellWidth` (0/1/2 columns per code point: combining marks, East Asian wide, emoji).
+  - `Frame`, a cell grid that handles wide glyphs.
+  - `AnsiWriter`, which rewrites only changed rows; truecolor, or the 256-color cube when `COLORTERM` doesn't say truecolor.
+  - `Terminal`: alternate screen, hidden cursor, no auto-wrap, Ctrl+C read as a key, size polling. Everything is restored on dispose.
+  - `Layout`: position bar, location line, info line, rules, snippet pane and status bar; a minimum size of 40x10, with a message below that.
+  - `PositionBar`: braille fill in eighths of a cell, `●` marker, a blue → amber → green gradient, and a padded `XX/XXX` label.
+  - `SnippetView`: line-number gutter, tabs expanded to 4 columns, the current string highlighted, horizontal scrolling when the string starts beyond the pane, and `‹`/`›` markers where lines are cut.
+  - `Screen` composes the frame.
+- `App/`: `AppState` (immutable), `Controller` (pure state machine), `Session` (items plus per-file "string k/n in file") and `TuiApp` (the main loop).
+  - Mode 0: `1` scroll, `2` shows "Edit mode is not implemented yet", `q` quits.
+  - Scroll mode: ←/→ previous/next string (a message at either end), ↑/↓ ±1 line, PgUp/PgDn ±6, Home re-centers, Esc back to mode 0. Ctrl+C quits from anywhere.
+  - On resize, the scroll position is re-clamped and the view re-centers if the current string went out of view.
+- `Model/SourceDocument` + `SourceCache`: decodes the way `File.ReadAllText` does (so scanner spans line up), detects the encoding from the BOM and the line endings (LF/CRLF/CR/Mixed). Both are shown in the status bar.
+- `Program.cs` runs the UI by default. It prints the list with `--list`, or when input or output is redirected.
+- Ctrl+S check (tmux): `stty` still reports `ixon`, but Ctrl+S reaches `Console.ReadKey`. Recorded in the plan's risks; milestone 5 will add `stty -ixon`.
+- Driving it in tmux found two problems, both fixed: a resize could leave the current string off-screen, and the location line was cut on the right (now the path is shortened from the left with `…`).
+- Tests: 108 passing (54 new: frame, ANSI, position bar, snippet view, controller transitions, source document, session).
+- Not committed yet.

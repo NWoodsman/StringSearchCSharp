@@ -1,4 +1,6 @@
 using System.Text;
+using StringSearch.App;
+using StringSearch.Model;
 using StringSearch.Persistence;
 using StringSearch.Scanning;
 
@@ -30,7 +32,16 @@ if (store.LoadWarning is not null)
 
 var filtered = CommittedFilter.Apply(scan.Occurrences, store.Entries);
 
-// The interactive UI arrives in milestone 3; until then both modes print the list.
+if (!flags.Contains("--list"))
+{
+    if (!Console.IsInputRedirected && !Console.IsOutputRedirected)
+    {
+        TuiApp.Run(new Session(filtered.Visible, scan, filtered.Ignored.Count, new SourceCache()));
+        return 0;
+    }
+    Console.Error.WriteLine("Not running in a terminal; printing the list instead.");
+}
+
 foreach (var occurrence in filtered.Visible)
     Console.WriteLine($"{occurrence.RelativePath}:{occurrence.Line}:{occurrence.Column}  {Quote(occurrence.Value)}");
 
