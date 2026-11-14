@@ -23,6 +23,8 @@ public enum TextAttr
     Dim = 2,
     Underline = 4,
     Inverse = 8,
+    Italic = 16,
+    Strikethrough = 32,
 }
 
 /// <summary>Foreground/background color (null = terminal default) plus attributes.</summary>

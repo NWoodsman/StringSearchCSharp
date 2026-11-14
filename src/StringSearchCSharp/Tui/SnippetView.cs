@@ -9,11 +9,13 @@ public static class SnippetView
 {
     public const int TabWidth = 4;
 
-    /// <param name="highlight">Span of the current string, drawn with <see cref="Theme.CurrentString"/>.</param>
+    /// <param name="highlight">Span of the current string.</param>
     /// <param name="baseStyle">Style for a text position outside the highlight (syntax colors); default style if null.</param>
+    /// <param name="highlightStyle">Style of the highlighted span; <see cref="Theme.CurrentString"/> if null.</param>
     public static void Draw(Frame frame, Layout layout, SourceDocument document, int topLine,
-        TextSpan? highlight, Func<int, Style>? baseStyle = null)
+        TextSpan? highlight, Func<int, Style>? baseStyle = null, Style? highlightStyle = null)
     {
+        var spanStyle = highlightStyle ?? Theme.CurrentString;
         var lines = document.Text.Lines;
         int digits = Math.Max(3, lines.Count.ToString().Length);
         int codeLeft = digits + 3; // "123 │ "
@@ -53,7 +55,7 @@ public static class SnippetView
                 Rune.DecodeFromUtf16(text.AsSpan(i), out var rune, out int consumed);
                 int position = line.Start + i;
                 var style = highlight is { } h && h.Contains(position)
-                    ? Theme.CurrentString
+                    ? spanStyle
                     : baseStyle?.Invoke(position) ?? Style.Default;
 
                 if (rune.Value == '\t')

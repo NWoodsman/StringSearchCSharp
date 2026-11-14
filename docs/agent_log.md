@@ -76,3 +76,14 @@ Today's initial task is to read design.md and create a plan to implement the app
 - Driving it in tmux found two problems, both fixed: a resize could leave the current string off-screen, and the location line was cut on the right (now the path is shortened from the left with `…`).
 - Tests: 108 passing (54 new: frame, ANSI, position bar, snippet view, controller transitions, source document, session).
 - Not committed yet.
+
+### Log: commit, then milestone 4, syntax highlighting (Claude Opus 5.5)
+
+- Committed milestone 3 as `6964795`.
+- `Tui/Highlighter.cs`: syntactic classification from the Roslyn syntax tree, one `TokenClass` per character, cached per `SourceDocument` (`ConditionalWeakTable`). It covers keywords (including contextual ones such as `async`/`with` and `var`/`dynamic` used as types), control-flow keywords, types (declarations, type-only contexts via `SyntaxFacts.IsInTypeOnlyContext`, `new X()`, `typeof`, attributes, generic names), methods (declarations and invocations), strings (all literal, interpolated and raw token kinds; holes are left uncolored), numbers, comments (line, block, doc, disabled `#if` code) and preprocessor directives.
+- `Theme`: syntax colors (foreground only, mid-tone), plus committed styles. `TextAttr` gained Italic (comments) and Strikethrough (committed string).
+- `Session`: `MarkCommitted` / `IsCommitted` / `CommittedCount`. A committed string renders the snippet gray with the span struck through, shows `✓ committed` in the header, and adds "N committed this session" at the start of the info line. Nothing calls `MarkCommitted` yet; milestone 6 will.
+- `SnippetView.Draw` takes an optional highlight style.
+- Checked in tmux (decoding the escape codes): keywords, control keywords, types, methods, numbers, doc comments and interpolated-string parts are colored as expected.
+- Tests: 151 passing (43 new: token classes, disabled code, cache, normal vs committed screen rendering).
+- Not committed yet.

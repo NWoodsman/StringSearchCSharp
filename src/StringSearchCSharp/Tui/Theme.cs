@@ -21,6 +21,21 @@ public static class Theme
     public static readonly Style StatusHint = new(Fg: Rgb.FromHex(0xA0A8B0), Bg: Rgb.FromHex(0x30363D));
     public static readonly Style StatusMessage = new(Fg: Rgb.FromHex(0x1F1A00), Bg: Rgb.FromHex(0xF5A524), Attr: TextAttr.Bold);
 
+    // Syntax colors (foreground only, mid-tone so they work on dark and light backgrounds).
+    public static readonly Style Keyword = new(Fg: Rgb.FromHex(0x569CD6));
+    public static readonly Style ControlKeyword = new(Fg: Rgb.FromHex(0xC586C0));
+    public static readonly Style TypeName = new(Fg: Rgb.FromHex(0x2BB5A0));
+    public static readonly Style MethodName = new(Fg: Rgb.FromHex(0xC8A24A));
+    public static readonly Style StringLiteral = new(Fg: Rgb.FromHex(0xCE9178));
+    public static readonly Style NumberLiteral = new(Fg: Rgb.FromHex(0x8FBF7F));
+    public static readonly Style Comment = new(Fg: Rgb.FromHex(0x6A9955), Attr: TextAttr.Italic);
+    public static readonly Style Preprocessor = new(Fg: Rgb.FromHex(0x9B9B9B));
+
+    // Committed strings: the whole snippet loses its syntax colors.
+    public static readonly Style Committed = new(Fg: Rgb.FromHex(0x6E7681));
+    public static readonly Style CommittedString = new(Fg: Rgb.FromHex(0xA0A8B0), Bg: Rgb.FromHex(0x2D333B), Attr: TextAttr.Strikethrough);
+    public static readonly Style CommittedBadge = new(Fg: Rgb.FromHex(0x3FB950), Attr: TextAttr.Bold);
+
     public static Style ModeBadge(App.Mode mode) => mode switch
     {
         App.Mode.Scroll => new(Fg: Rgb.FromHex(0x0D1117), Bg: Rgb.FromHex(0x4F8CFF), Attr: TextAttr.Bold),

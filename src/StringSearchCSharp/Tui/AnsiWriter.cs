@@ -62,8 +62,10 @@ public static class AnsiWriter
         sb.Append(Esc).Append('0');
         if (style.Attr.HasFlag(TextAttr.Bold)) sb.Append(";1");
         if (style.Attr.HasFlag(TextAttr.Dim)) sb.Append(";2");
+        if (style.Attr.HasFlag(TextAttr.Italic)) sb.Append(";3");
         if (style.Attr.HasFlag(TextAttr.Underline)) sb.Append(";4");
         if (style.Attr.HasFlag(TextAttr.Inverse)) sb.Append(";7");
+        if (style.Attr.HasFlag(TextAttr.Strikethrough)) sb.Append(";9");
         if (style.Fg is { } fg) AppendColor(sb, 38, fg, mode);
         if (style.Bg is { } bg) AppendColor(sb, 48, bg, mode);
         sb.Append('m');

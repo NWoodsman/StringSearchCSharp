@@ -32,12 +32,29 @@ public static class Screen
         }
         else
         {
-            var occurrence = items[state.Index];
-            SnippetView.Draw(frame, layout, session.Sources.Get(occurrence.FilePath), state.TopLine, occurrence.Span);
+            DrawSnippet(frame, layout, session, state);
         }
 
         DrawStatus(frame, layout, session, state);
         return frame;
+    }
+
+    private static void DrawSnippet(Frame frame, Layout layout, Session session, AppState state)
+    {
+        var occurrence = session.Items[state.Index];
+        var document = session.Sources.Get(occurrence.FilePath);
+
+        if (session.IsCommitted(state.Index))
+        {
+            // Done: gray out the whole snippet so it reads as finished.
+            SnippetView.Draw(frame, layout, document, state.TopLine, occurrence.Span,
+                _ => Theme.Committed, Theme.CommittedString);
+            return;
+        }
+
+        var classes = Highlighter.For(document);
+        SnippetView.Draw(frame, layout, document, state.TopLine, occurrence.Span,
+            position => position < classes.Length ? Highlighter.StyleOf(classes[position]) : Style.Default);
     }
 
     private static void DrawLocation(Frame frame, Layout layout, Session session, AppState state)
@@ -56,7 +73,9 @@ public static class Screen
         var (position, count) = session.FilePosition(state.Index);
         var location = TruncateStart($"{occurrence.RelativePath}:{occurrence.Line}:{occurrence.Column}", badgeCol - 1);
         int col = frame.Write(layout.LocationRow, 0, location, Theme.Path, badgeCol - 1);
-        frame.Write(layout.LocationRow, col, $"   string {position}/{count} in file", Theme.Muted, badgeCol - 1);
+        col = frame.Write(layout.LocationRow, col, $"   string {position}/{count} in file", Theme.Muted, badgeCol - 1);
+        if (session.IsCommitted(state.Index))
+            frame.Write(layout.LocationRow, col, "   ✓ committed", Theme.CommittedBadge, badgeCol - 1);
     }
 
     /// <summary>Keeps the end of <paramref name="text"/> (the file name and position), dropping the start.</summary>
@@ -79,8 +98,8 @@ public static class Screen
         var skipped = session.Scan.SkippedFiles;
         int tests = skipped.Count(f => f.Reason == SkipReason.Test);
         frame.Write(layout.InfoRow, 0,
-            $"{session.Scan.ScannedFiles.Count} files scanned · {session.IgnoredCount} ignored via {SearchStore.FileName} · " +
-            $"skipped {tests} test, {skipped.Count - tests} build files",
+            $"{session.CommittedCount} committed this session · {session.IgnoredCount} ignored via {SearchStore.FileName} · " +
+            $"{session.Scan.ScannedFiles.Count} files scanned · skipped {tests} test, {skipped.Count - tests} build files",
             Theme.Muted);
     }
 

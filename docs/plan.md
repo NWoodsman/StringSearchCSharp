@@ -172,6 +172,7 @@ Use **Roslyn's syntax tree** (already a dependency), not csharp-ls. csharp-ls wo
 - Cache the classification per file. Recompute only after edits (re-parse the edited text; Roslyn's incremental `WithChangedText` keeps it fast).
 - Optional later: `Microsoft.CodeAnalysis.CSharp.Workspaces` + `Classifier.GetClassifiedSpansAsync` with an `AdhocWorkspace` for richer classification. Not needed for v1.
 - Current string: highlighted background over its span. Committed strings: the snippet (or at least the string span) is rendered dimmed/gray, as the design asks.
+- *Done in milestone 4:* `Tui/Highlighter.cs` sorts tokens into Keyword, ControlKeyword, Type, Method, String, Number, Comment and Preprocessor. Comments, doc comments, `#if`-disabled code and directives are classified after tokens, so they take priority. Results are cached per `SourceDocument`. A committed string grays out the whole snippet (no syntax colors), shows its span struck through on a gray background, and adds `✓ committed` to the header. `Session.MarkCommitted` is the hook that milestone 6 will call.
 
 ## Modes and keys (state machine)
 

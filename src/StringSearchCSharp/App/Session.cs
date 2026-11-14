@@ -7,6 +7,7 @@ namespace StringSearch.App;
 public sealed class Session
 {
     private readonly (int Position, int Count)[] _filePositions;
+    private readonly HashSet<int> _committed = [];
 
     public Session(IReadOnlyList<StringOccurrence> items, ScanResult scan, int ignoredCount, SourceCache sources)
     {
@@ -32,6 +33,13 @@ public sealed class Session
     public ScanResult Scan { get; }
     public int IgnoredCount { get; }
     public SourceCache Sources { get; }
+
+    public int CommittedCount => _committed.Count;
+
+    /// <summary>True once the string at <paramref name="index"/> was committed this session (milestone 6).</summary>
+    public bool IsCommitted(int index) => _committed.Contains(index);
+
+    public void MarkCommitted(int index) => _committed.Add(index);
 
     /// <summary>1-based position of item <paramref name="index"/> among the strings in its file.</summary>
     public (int Position, int Count) FilePosition(int index) => _filePositions[index];
