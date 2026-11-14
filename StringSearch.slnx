@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/" />
+  <Folder Name="/src/StringSearchCSharp/">
+    <Project Path="src/StringSearchCSharp/StringSearch.csproj" />
+  </Folder>
+  <Folder Name="/src/tests/">
+    <Project Path="src/tests/StringSearch.Tests/StringSearch.Tests.csproj" />
+  </Folder>
+</Solution>
