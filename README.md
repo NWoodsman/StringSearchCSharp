@@ -1,4 +1,9 @@
 # StringSearchCSharp
+
+
+![Screenshot preview image](docs/screenshot.png)
+
+
 Interactive TUI for editing strings in a dotnet project and dealing with unfortunate 'claudisms'.
 
 The app uses Roslyn, the dotnet parser, to find all hardcoded strings in a project and give you a chance to reword the string. 
